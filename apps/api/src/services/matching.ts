@@ -1,0 +1,172 @@
+import { and, eq, gte, ne, sql } from 'drizzle-orm';
+
+import type { ParsedNotification } from '@seedhape/shared';
+
+import { db } from '../db/index.js';
+import { orders, transactions, merchants } from '../db/schema/index.js';
+import { logger } from '../lib/logger.js';
+import { enqueueWebhook } from '../queues/webhook.js';
+
+export type MatchResult =
+  | { matched: true; orderId: string; method: 'tn_field' | 'amount_window' }
+  | { matched: false; reason: string };
+
+/**
+ * Core matching engine.
+ *
+ * Strategy 1 (primary): Extract order ID from `tn` field, verify amount + expiry.
+ * Strategy 2 (secondary): amount + merchantId within 5min window → single match = VERIFIED,
+ *   collision = DISPUTED.
+ */
+export async function matchNotification(
+  merchantId: string,
+  notification: ParsedNotification,
+): Promise<MatchResult> {
+  const { amount, utr, transactionNote, senderName, upiApp } = notification;
+
+  // Guard: deduplicate by UTR
+  if (utr) {
+    const [existing] = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(and(eq(transactions.utr, utr), eq(transactions.merchantId, merchantId)))
+      .limit(1);
+
+    if (existing) {
+      return { matched: false, reason: 'duplicate_utr' };
+    }
+  }
+
+  // Strategy 1: tn field contains order ID
+  if (transactionNote) {
+    const orderIdMatch = transactionNote.match(/sp_ord_[a-z0-9]+/);
+    if (orderIdMatch) {
+      const orderId = orderIdMatch[0];
+      const result = await verifyAndSettle(orderId, merchantId, amount, notification, 'tn_field');
+      if (result.matched) return result;
+    }
+  }
+
+  // Strategy 2: amount + merchant + 5-minute window
+  const windowStart = new Date(Date.now() - 5 * 60 * 1000);
+
+  const candidates = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.merchantId, merchantId),
+        eq(orders.amount, amount),
+        eq(orders.status, 'PENDING'),
+        gte(orders.expiresAt, new Date()),
+        gte(orders.createdAt, windowStart),
+      ),
+    );
+
+  if (candidates.length === 0) {
+    return { matched: false, reason: 'no_matching_orders' };
+  }
+
+  if (candidates.length === 1 && candidates[0]) {
+    const orderId = candidates[0].id;
+    return verifyAndSettle(orderId, merchantId, amount, notification, 'amount_window');
+  }
+
+  // Multiple candidates — mark all as DISPUTED
+  logger.warn(
+    { merchantId, amount, candidateCount: candidates.length },
+    'Ambiguous match — flagging as DISPUTED',
+  );
+
+  for (const candidate of candidates) {
+    await db
+      .update(orders)
+      .set({ status: 'DISPUTED', updatedAt: new Date() })
+      .where(eq(orders.id, candidate.id));
+
+    void enqueueWebhook({ orderId: candidate.id, event: 'order.disputed' });
+  }
+
+  return { matched: false, reason: 'ambiguous_amount_collision' };
+}
+
+async function verifyAndSettle(
+  orderId: string,
+  merchantId: string,
+  amount: number,
+  notification: ParsedNotification,
+  method: 'tn_field' | 'amount_window',
+): Promise<MatchResult> {
+  const [order] = await db
+    .select()
+    .from(orders)
+    .where(
+      and(
+        eq(orders.id, orderId),
+        eq(orders.merchantId, merchantId),
+        ne(orders.status, 'EXPIRED'),
+        ne(orders.status, 'REJECTED'),
+        ne(orders.status, 'VERIFIED'),
+      ),
+    )
+    .limit(1);
+
+  if (!order) {
+    return { matched: false, reason: 'order_not_found_or_terminal' };
+  }
+
+  if (new Date() > order.expiresAt) {
+    return { matched: false, reason: 'order_expired' };
+  }
+
+  if (order.amount !== amount) {
+    logger.warn(
+      { orderId, expected: order.amount, received: amount },
+      'Amount mismatch — flagging as DISPUTED',
+    );
+
+    await db
+      .update(orders)
+      .set({ status: 'DISPUTED', updatedAt: new Date() })
+      .where(eq(orders.id, orderId));
+
+    void enqueueWebhook({ orderId, event: 'order.disputed' });
+    return { matched: false, reason: 'amount_mismatch' };
+  }
+
+  const now = new Date();
+
+  // Create transaction record
+  await db.insert(transactions).values({
+    orderId,
+    merchantId,
+    utr: notification.utr,
+    amount,
+    senderName: notification.senderName,
+    upiApp: notification.upiApp ?? notification.packageName,
+    rawNotification: notification as Record<string, unknown>,
+    matchedVia: method,
+  });
+
+  // Update order to VERIFIED
+  await db
+    .update(orders)
+    .set({
+      status: 'VERIFIED',
+      verificationMethod: 'UPI_NOTIFICATION',
+      verifiedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(orders.id, orderId));
+
+  // Increment monthly tx count
+  await db
+    .update(merchants)
+    .set({ monthlyTxCount: sql`monthly_tx_count + 1` })
+    .where(eq(merchants.id, merchantId));
+
+  void enqueueWebhook({ orderId, event: 'order.verified' });
+
+  logger.info({ orderId, method, amount }, 'Order verified');
+  return { matched: true, orderId, method };
+}

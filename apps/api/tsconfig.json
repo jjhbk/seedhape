@@ -1,0 +1,12 @@
+{
+  "extends": "@seedhape/typescript-config/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src"]
+}
