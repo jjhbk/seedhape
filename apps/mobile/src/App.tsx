@@ -5,12 +5,13 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
 import DeviceInfo from 'react-native-device-info';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Text } from 'react-native';
 
 import HomeScreen from './screens/HomeScreen.js';
-import {
-  startNotificationListener,
-  checkNotificationPermission,
-} from './services/notification-bridge.js';
+import TransactionsScreen from './screens/TransactionsScreen.js';
+import DisputesScreen from './screens/DisputesScreen.js';
+import SettingsScreen from './screens/SettingsScreen.js';
+import { startNotificationListener } from './services/notification-bridge.js';
 import { registerDevice, sendHeartbeat } from './services/api.js';
 
 const Tab = createBottomTabNavigator();
@@ -95,7 +96,34 @@ function AppTabs() {
         <Tab.Screen
           name="Home"
           component={HomeScreen}
-          options={{ title: 'Home' }}
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text>,
+          }}
+        />
+        <Tab.Screen
+          name="Transactions"
+          component={TransactionsScreen}
+          options={{
+            title: 'Transactions',
+            tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📋</Text>,
+          }}
+        />
+        <Tab.Screen
+          name="Disputes"
+          component={DisputesScreen}
+          options={{
+            title: 'Disputes',
+            tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚠️</Text>,
+          }}
+        />
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            title: 'Settings',
+            tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚙️</Text>,
+          }}
         />
       </Tab.Navigator>
     </NavigationContainer>

@@ -42,13 +42,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { getToken, userId } = await auth();
   if (!userId) redirect('/sign-in');
 
   const token = await getToken();
-  const page = Number(searchParams.page ?? 1);
+  const page = Number((await searchParams).page ?? 1);
 
   const res = await fetch(
     `${API_URL}/v1/merchant/transactions?page=${page}&limit=20`,

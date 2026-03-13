@@ -8,6 +8,7 @@ import { ordersRouter } from './routes/orders.js';
 import { internalRouter } from './routes/internal.js';
 import { merchantRouter } from './routes/merchant.js';
 import { payRouter } from './routes/pay.js';
+import { syncRouter } from './routes/sync.js';
 import { logger } from './lib/logger.js';
 
 export function createApp() {
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/v1/merchant', merchantRouter);
   app.use('/v1/pay', payRouter);
   app.use('/internal', internalRouter);
+  app.use('/internal', syncRouter);
 
   // Error handler (must be last)
   app.use(errorHandler);

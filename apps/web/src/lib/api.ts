@@ -12,7 +12,7 @@ export class ApiError extends Error {
 
 async function request<T>(
   path: string,
-  options: RequestInit & { token?: string } = {},
+  options: RequestInit & { token?: string | undefined } = {},
 ): Promise<T> {
   const { token, ...init } = options;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import { useParams } from 'next/navigation';
 import { CheckCircle, Clock, XCircle, Smartphone, RefreshCw } from 'lucide-react';
 
 import { paiseToRupees } from '@seedhape/shared';
@@ -18,11 +18,12 @@ type OrderData = {
   expiresAt: string;
 };
 
-export default function PaymentPage({ params }: { params: { orderId: string } }) {
+export default function PaymentPage() {
+  const params = useParams<{ orderId: string }>();
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchOrder();

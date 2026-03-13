@@ -129,6 +129,34 @@ router.get('/transactions', async (req, res, next) => {
   }
 });
 
+// GET /v1/merchant/disputes
+router.get('/disputes', async (req, res, next) => {
+  try {
+    const { userId } = getAuth(req);
+    const merchant = await getMerchantFromClerk(userId!);
+
+    const rows = await db
+      .select({
+        id: disputes.id,
+        orderId: disputes.orderId,
+        amount: orders.amount,
+        resolution: disputes.resolution,
+        screenshotUrl: disputes.screenshotUrl,
+        resolutionNote: disputes.resolutionNote,
+        createdAt: disputes.createdAt,
+        resolvedAt: disputes.resolvedAt,
+      })
+      .from(disputes)
+      .innerJoin(orders, eq(orders.id, disputes.orderId))
+      .where(eq(orders.merchantId, merchant.id))
+      .orderBy(desc(disputes.createdAt));
+
+    res.json({ data: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /v1/merchant/disputes/:id
 router.get('/disputes/:id', async (req, res, next) => {
   try {

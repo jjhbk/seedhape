@@ -4,7 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'SeedhaPe — UPI Payment Middleware',
@@ -15,8 +15,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body className={inter.className}>{children}</body>
+      <html lang="en" suppressHydrationWarning className={inter.variable}>
+        <body className="font-sans antialiased" suppressHydrationWarning>
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   );

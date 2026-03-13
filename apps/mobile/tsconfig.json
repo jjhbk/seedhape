@@ -1,0 +1,11 @@
+{
+  "extends": "@seedhape/typescript-config/base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022"],
+    "types": ["react", "react-native", "node"],
+    "baseUrl": "."
+  },
+  "include": ["src/**/*", "index.js"],
+  "exclude": ["node_modules"]
+}
