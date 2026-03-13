@@ -4,7 +4,8 @@ import {
   StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 
-import { verifyApiKey, saveApiKey } from '../services/api.js';
+import Config from '../config';
+import { verifyApiKey, saveApiKey } from '../services/api';
 
 type Props = { onSuccess: (apiKey: string) => void };
 
@@ -20,7 +21,14 @@ export default function ApiKeyScreen({ onSuccess }: Props) {
     }
 
     setLoading(true);
-    const profile = await verifyApiKey(trimmed).catch(() => null);
+    let profile: Awaited<ReturnType<typeof verifyApiKey>> | null = null;
+    try {
+      profile = await verifyApiKey(trimmed);
+    } catch {
+      Alert.alert('Cannot reach server', `Check API URL and Wi-Fi connectivity.\n${Config.API_URL}`);
+      setLoading(false);
+      return;
+    }
     setLoading(false);
 
     if (!profile) {

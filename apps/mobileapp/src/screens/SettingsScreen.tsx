@@ -4,9 +4,9 @@ import {
   StyleSheet, Switch, Alert, ActivityIndicator,
 } from 'react-native';
 
-import { UPI_APP_PACKAGES } from '../shared.js';
-import { getMerchantProfile, clearApiKey } from '../services/api.js';
-import Config from '../config.js';
+import { UPI_APP_PACKAGES } from '../shared';
+import { getMerchantProfile, clearApiKey } from '../services/api';
+import Config from '../config';
 
 const API_URL = Config.API_URL;
 

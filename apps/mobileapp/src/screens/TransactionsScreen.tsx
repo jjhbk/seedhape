@@ -4,8 +4,8 @@ import {
   RefreshControl, ActivityIndicator, Modal, ScrollView,
 } from 'react-native';
 
-import { getTransactions } from '../services/api.js';
-import { paiseToRupees } from '../shared.js';
+import { getTransactions } from '../services/api';
+import { paiseToRupees } from '../shared';
 
 type Transaction = {
   id: string;

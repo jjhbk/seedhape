@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import type { Request } from 'express';
 
 import { Router } from 'express';
 import { eq, desc, and, count, sql } from 'drizzle-orm';
@@ -25,8 +26,41 @@ const router = Router();
 router.use(clerkMiddleware());
 router.use(requireAuth());
 
-async function getMerchantFromClerk(clerkUserId: string) {
-  const [merchant] = await db
+function claimAsString(claims: Record<string, unknown>, key: string): string | undefined {
+  const value = claims[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+async function getMerchantFromClerk(req: Request, clerkUserId: string) {
+  let [merchant] = await db
+    .select()
+    .from(merchants)
+    .where(eq(merchants.clerkUserId, clerkUserId))
+    .limit(1);
+
+  if (merchant) return merchant;
+
+  // Fallback provisioning when webhook sync has not run yet.
+  const auth = getAuth(req) as { sessionClaims?: Record<string, unknown> };
+  const claims = auth.sessionClaims ?? {};
+
+  const email =
+    claimAsString(claims, 'email') ??
+    claimAsString(claims, 'email_address') ??
+    claimAsString(claims, 'primary_email_address') ??
+    `${clerkUserId}@clerk.local`;
+
+  const firstName = claimAsString(claims, 'first_name');
+  const lastName = claimAsString(claims, 'last_name');
+  const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+  const businessName = fullName || email.split('@')[0] || 'Merchant';
+
+  await db
+    .insert(merchants)
+    .values({ clerkUserId, email, businessName })
+    .onConflictDoNothing({ target: merchants.clerkUserId });
+
+  [merchant] = await db
     .select()
     .from(merchants)
     .where(eq(merchants.clerkUserId, clerkUserId))
@@ -43,7 +77,7 @@ async function getMerchantFromClerk(clerkUserId: string) {
 router.get('/profile', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
 
     res.json({
       id: merchant.id,
@@ -67,7 +101,7 @@ router.get('/profile', async (req, res, next) => {
 router.put('/profile', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
     const input = UpdateMerchantProfileSchema.parse(req.body);
 
     const [updated] = await db
@@ -95,7 +129,7 @@ router.put('/profile', async (req, res, next) => {
 router.get('/transactions', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
 
     const page = Number(req.query['page'] ?? 1);
     const limit = Math.min(Number(req.query['limit'] ?? 20), 100);
@@ -133,7 +167,7 @@ router.get('/transactions', async (req, res, next) => {
 router.get('/disputes', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
 
     const rows = await db
       .select({
@@ -161,7 +195,7 @@ router.get('/disputes', async (req, res, next) => {
 router.get('/disputes/:id', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
 
     const [dispute] = await db
       .select()
@@ -192,7 +226,7 @@ router.get('/disputes/:id', async (req, res, next) => {
 router.put('/disputes/:id', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
     const { resolution, resolutionNote } = req.body as {
       resolution: 'APPROVED' | 'REJECTED';
       resolutionNote?: string;
@@ -252,7 +286,7 @@ router.put('/disputes/:id', async (req, res, next) => {
 router.get('/analytics', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
 
     const [stats] = await db
       .select({
@@ -283,7 +317,7 @@ router.get('/analytics', async (req, res, next) => {
 router.post('/api-keys', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
     const { environment = 'live', name = 'Default' } = req.body as {
       environment?: 'live' | 'test';
       name?: string;
@@ -319,7 +353,7 @@ router.post('/api-keys', async (req, res, next) => {
 router.delete('/api-keys/:id', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
 
     await db
       .update(apiKeys)
@@ -341,7 +375,7 @@ router.delete('/api-keys/:id', async (req, res, next) => {
 router.post('/webhook/test', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
-    const merchant = await getMerchantFromClerk(userId!);
+    const merchant = await getMerchantFromClerk(req, userId!);
 
     if (!merchant.webhookUrl) {
       throw new AppError(400, 'Webhook URL not configured', 'WEBHOOK_URL_NOT_SET');

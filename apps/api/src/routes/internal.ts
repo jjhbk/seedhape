@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 
 import {
   InternalNotificationPayloadSchema,
@@ -8,13 +8,96 @@ import {
 } from '@seedhape/shared';
 
 import { db } from '../db/index.js';
-import { merchants, deviceTokens } from '../db/schema/index.js';
-import { requireDeviceToken } from '../middleware/auth.js';
+import { merchants, deviceTokens, orders, transactions } from '../db/schema/index.js';
+import { requireApiKey, requireDeviceToken } from '../middleware/auth.js';
 import { enqueueNotification } from '../queues/notification-processor.js';
 import { logger } from '../lib/logger.js';
 import { AppError } from '../middleware/error-handler.js';
 
 const router = Router();
+
+// GET /internal/device/verify — validate API key and fetch merchant summary
+router.get('/device/verify', requireApiKey, async (req, res, next) => {
+  try {
+    const [merchant] = await db
+      .select({
+        id: merchants.id,
+        businessName: merchants.businessName,
+        upiId: merchants.upiId,
+      })
+      .from(merchants)
+      .where(eq(merchants.id, req.merchantId!))
+      .limit(1);
+
+    if (!merchant) {
+      throw new AppError(404, 'Merchant not found', 'MERCHANT_NOT_FOUND');
+    }
+
+    res.json(merchant);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /internal/device/profile — mobile app profile fetch via API key
+router.get('/device/profile', requireApiKey, async (req, res, next) => {
+  try {
+    const [merchant] = await db
+      .select({
+        id: merchants.id,
+        email: merchants.email,
+        businessName: merchants.businessName,
+        upiId: merchants.upiId,
+        status: merchants.status,
+        plan: merchants.plan,
+        monthlyTxCount: merchants.monthlyTxCount,
+      })
+      .from(merchants)
+      .where(eq(merchants.id, req.merchantId!))
+      .limit(1);
+
+    if (!merchant) {
+      throw new AppError(404, 'Merchant not found', 'MERCHANT_NOT_FOUND');
+    }
+
+    res.json(merchant);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /internal/device/transactions — mobile app transactions via API key
+router.get('/device/transactions', requireApiKey, async (req, res, next) => {
+  try {
+    const page = Number(req.query['page'] ?? 1);
+    const limit = Math.min(Number(req.query['limit'] ?? 20), 100);
+    const offset = (page - 1) * limit;
+
+    const rows = await db
+      .select({
+        id: orders.id,
+        amount: orders.amount,
+        originalAmount: orders.originalAmount,
+        status: orders.status,
+        description: orders.description,
+        createdAt: orders.createdAt,
+        verifiedAt: orders.verifiedAt,
+        utr: transactions.utr,
+        upiApp: transactions.upiApp,
+        senderName: transactions.senderName,
+      })
+      .from(orders)
+      .leftJoin(transactions, eq(transactions.orderId, orders.id))
+      .where(eq(orders.merchantId, req.merchantId!))
+      .orderBy(desc(orders.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    res.json({ data: rows, page, limit });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // POST /internal/device/register — first-time device registration (API key auth)
 router.post('/device/register', async (req, res, next) => {

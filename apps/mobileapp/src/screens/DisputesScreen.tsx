@@ -4,8 +4,8 @@ import {
   RefreshControl, Alert, Image,
 } from 'react-native';
 
-import { paiseToRupees } from '../shared.js';
-import Config from '../config.js';
+import { paiseToRupees } from '../shared';
+import Config from '../config';
 
 const API_URL = Config.API_URL;
 

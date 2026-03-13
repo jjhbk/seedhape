@@ -1,6 +1,6 @@
 import { NativeModules, NativeEventEmitter } from 'react-native';
 
-import { sendNotifications } from './api.js';
+import { sendNotifications } from './api';
 
 const { NotificationListener } = NativeModules;
 const emitter = new NativeEventEmitter(NotificationListener);

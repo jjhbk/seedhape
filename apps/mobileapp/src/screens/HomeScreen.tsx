@@ -4,9 +4,9 @@ import {
   StyleSheet, RefreshControl,
 } from 'react-native';
 
-import { getMerchantProfile, getTransactions } from '../services/api.js';
-import { checkNotificationPermission, requestNotificationPermission } from '../services/notification-bridge.js';
-import { paiseToRupees } from '../shared.js';
+import { getMerchantProfile, getTransactions } from '../services/api';
+import { checkNotificationPermission, requestNotificationPermission } from '../services/notification-bridge';
+import { paiseToRupees } from '../shared';
 
 type Merchant = {
   businessName: string;

@@ -28,6 +28,7 @@ export default function SettingsPage() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [saving, setSaving] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
 
@@ -64,16 +65,19 @@ export default function SettingsPage() {
   }
 
   async function createApiKey() {
+    setApiKeyError(null);
     const token = await getToken();
     const res = await fetch(`${API_URL}/v1/merchant/api-keys`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ environment: 'live', name: 'Default' }),
     });
-    if (res.ok) {
-      const data = await res.json();
-      setNewKey(data.key);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setApiKeyError(data.error ?? data.message ?? 'Failed to create API key');
+      return;
     }
+    setNewKey(data.key);
   }
 
   async function testWebhook() {
@@ -167,6 +171,12 @@ export default function SettingsPage() {
         </div>
 
         {/* New key reveal */}
+        {apiKeyError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-4 text-sm">
+            {apiKeyError}
+          </div>
+        )}
+
         {newKey && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
             <p className="text-sm font-medium text-green-800 mb-2">

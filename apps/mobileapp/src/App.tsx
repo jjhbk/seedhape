@@ -5,13 +5,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import DeviceInfo from 'react-native-device-info';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import HomeScreen from './screens/HomeScreen.js';
-import TransactionsScreen from './screens/TransactionsScreen.js';
-import DisputesScreen from './screens/DisputesScreen.js';
-import SettingsScreen from './screens/SettingsScreen.js';
-import ApiKeyScreen from './screens/ApiKeyScreen.js';
-import { startNotificationListener } from './services/notification-bridge.js';
-import { getApiKey, registerDevice, sendHeartbeat } from './services/api.js';
+import HomeScreen from './screens/HomeScreen';
+import TransactionsScreen from './screens/TransactionsScreen';
+import DisputesScreen from './screens/DisputesScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import ApiKeyScreen from './screens/ApiKeyScreen';
+import { startNotificationListener } from './services/notification-bridge';
+import { getApiKey, registerDevice, sendHeartbeat } from './services/api';
 
 const Tab = createBottomTabNavigator();
 

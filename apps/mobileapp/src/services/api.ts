@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 
-import Config from '../config.js';
+import Config from '../config';
 
 const API_URL = Config.API_URL;
 const KEYCHAIN_SERVICE = 'seedhape_api_key';
@@ -41,8 +41,10 @@ async function getDeviceHeaders(): Promise<Record<string, string>> {
 
 /** Verify an API key and return the merchant profile, or null if invalid. */
 export async function verifyApiKey(apiKey: string) {
-  const res = await fetch(`${API_URL}/v1/merchant/profile`, {
+  const res = await fetch(`${API_URL}/internal/device/verify`, {
     headers: { Authorization: `Bearer ${apiKey}` },
+  }).catch(() => {
+    throw new Error('NETWORK_ERROR');
   });
   if (!res.ok) return null;
   return res.json() as Promise<{ id: string; businessName: string; upiId: string | null }>;
@@ -99,7 +101,7 @@ export async function sendNotifications(notifications: unknown[]) {
 }
 
 export async function getMerchantProfile(apiKey: string) {
-  const res = await fetch(`${API_URL}/v1/merchant/profile`, {
+  const res = await fetch(`${API_URL}/internal/device/profile`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
   if (!res.ok) return null;
@@ -107,7 +109,7 @@ export async function getMerchantProfile(apiKey: string) {
 }
 
 export async function getTransactions(apiKey: string, page = 1) {
-  const res = await fetch(`${API_URL}/v1/merchant/transactions?page=${page}&limit=20`, {
+  const res = await fetch(`${API_URL}/internal/device/transactions?page=${page}&limit=20`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
   if (!res.ok) return { data: [] };
