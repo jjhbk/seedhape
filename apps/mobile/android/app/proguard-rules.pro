@@ -1,1 +1,0 @@
-# SeedhaPe mobile ProGuard rules

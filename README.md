@@ -719,7 +719,7 @@ The dashboard shows your merchant status as **ONLINE** (green) when the app is r
 ### Supported UPI apps
 
 | App | Package | Status |
-|-----|---------|--------|
+|-----|---------|--------|npx react-native@latest init MyApp
 | PhonePe | `com.phonepe.app` | Supported |
 | Google Pay | `com.google.android.apps.nbu.paisa.user` | Supported |
 | Paytm | `net.one97.paytm` | Supported |

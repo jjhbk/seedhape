@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { eq } from 'drizzle-orm';
 import QRCode from 'qrcode';
+import multer from 'multer';
+import { put } from '@vercel/blob';
 
 import { db } from '../db/index.js';
 import { orders, disputes } from '../db/schema/index.js';
@@ -8,6 +10,17 @@ import { getOrderByIdPublic } from '../services/orders.js';
 import { AppError } from '../middleware/error-handler.js';
 
 const router = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Only image files are allowed'));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 // GET /v1/pay/:orderId — public payment page data
 router.get('/:orderId', async (req, res, next) => {
@@ -39,8 +52,8 @@ router.get('/:orderId', async (req, res, next) => {
   }
 });
 
-// POST /v1/pay/:orderId/screenshot — dispute screenshot upload
-router.post('/:orderId/screenshot', async (req, res, next) => {
+// POST /v1/pay/:orderId/screenshot — dispute screenshot upload to Vercel Blob
+router.post('/:orderId/screenshot', upload.single('screenshot'), async (req, res, next) => {
   try {
     const orderId = req.params['orderId']!;
     const order = await getOrderByIdPublic(orderId);
@@ -53,10 +66,17 @@ router.post('/:orderId/screenshot', async (req, res, next) => {
       throw new AppError(400, 'Screenshots only accepted for pending/disputed orders', 'INVALID_STATE');
     }
 
-    const { screenshotUrl } = req.body as { screenshotUrl?: string };
-    if (!screenshotUrl) {
-      throw new AppError(400, 'screenshotUrl is required', 'MISSING_SCREENSHOT');
+    if (!req.file) {
+      throw new AppError(400, 'Screenshot image file is required', 'MISSING_SCREENSHOT');
     }
+
+    // Upload to Vercel Blob
+    const ext = req.file.mimetype.split('/')[1] ?? 'jpg';
+    const filename = `screenshots/${orderId}-${Date.now()}.${ext}`;
+    const { url } = await put(filename, req.file.buffer, {
+      access: 'public',
+      contentType: req.file.mimetype,
+    });
 
     // Mark order as disputed and create dispute record
     await db
@@ -66,10 +86,10 @@ router.post('/:orderId/screenshot', async (req, res, next) => {
 
     await db.insert(disputes).values({
       orderId,
-      screenshotUrl,
+      screenshotUrl: url,
     });
 
-    res.json({ ok: true, message: 'Screenshot submitted for review' });
+    res.json({ ok: true, message: 'Screenshot submitted for review', screenshotUrl: url });
   } catch (err) {
     next(err);
   }

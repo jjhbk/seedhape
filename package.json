@@ -14,8 +14,9 @@
     "db:migrate": "turbo run db:migrate --filter=@seedhape/api"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
+    "@react-native/gradle-plugin": "^0.84.1",
     "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   },
   "engines": {

@@ -16,26 +16,31 @@ import { AppError } from '../middleware/error-handler.js';
 
 const router = Router();
 
-// POST /internal/device/register — first-time device registration (no auth needed)
+// POST /internal/device/register — first-time device registration (API key auth)
 router.post('/device/register', async (req, res, next) => {
   try {
-    const clerkToken = req.headers.authorization?.replace('Bearer ', '');
-    if (!clerkToken) {
-      throw new AppError(401, 'Clerk token required', 'MISSING_AUTH');
+    const rawKey = req.headers.authorization?.replace('Bearer ', '').trim();
+    if (!rawKey || (!rawKey.startsWith('sp_live_') && !rawKey.startsWith('sp_test_'))) {
+      throw new AppError(401, 'Valid API key required', 'MISSING_AUTH');
     }
 
-    // Verify Clerk token and get user
-    const { verifyToken } = await import('@clerk/express');
-    const payload = await verifyToken(clerkToken, {
-      secretKey: process.env['CLERK_SECRET_KEY']!,
-    });
+    const crypto = await import('node:crypto');
+    const { apiKeys } = await import('../db/schema/index.js');
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const [keyRecord] = await db
+      .select({ merchantId: apiKeys.merchantId })
+      .from(apiKeys)
+      .where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.isActive, true)))
+      .limit(1);
 
-    const clerkUserId = payload.sub;
+    if (!keyRecord) {
+      throw new AppError(401, 'Invalid or inactive API key', 'INVALID_API_KEY');
+    }
 
     const [merchant] = await db
       .select()
       .from(merchants)
-      .where(eq(merchants.clerkUserId, clerkUserId))
+      .where(eq(merchants.id, keyRecord.merchantId))
       .limit(1);
 
     if (!merchant) {
