@@ -19,6 +19,12 @@
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   },
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.3",
+      "react-dom": "19.2.3"
+    }
+  },
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
