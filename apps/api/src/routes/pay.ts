@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import multer from 'multer';
 import { put } from '@vercel/blob';
+import { z } from 'zod';
 
 import { db } from '../db/index.js';
 import { orders, disputes, merchants } from '../db/schema/index.js';
@@ -10,6 +11,9 @@ import { getOrderByIdPublic } from '../services/orders.js';
 import { AppError } from '../middleware/error-handler.js';
 
 const router = Router();
+const ExpectedPayerSchema = z.object({
+  expectedSenderName: z.string().trim().min(2).max(100),
+});
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
@@ -57,7 +61,40 @@ router.get('/:orderId', async (req, res, next) => {
       upiUri: order.upiUri,
       qrCode: qrCodeDataUrl,
       expiresAt: order.expiresAt.toISOString(),
+      expectedSenderName:
+        (order.metadata as { expectedSenderName?: string } | null)?.expectedSenderName ?? null,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /v1/pay/:orderId/expectation — set expected sender name for amount+name matching
+router.post('/:orderId/expectation', async (req, res, next) => {
+  try {
+    const orderId = String(req.params['orderId']);
+    const input = ExpectedPayerSchema.parse(req.body);
+    const order = await getOrderByIdPublic(orderId);
+
+    if (!order) {
+      throw new AppError(404, 'Order not found', 'ORDER_NOT_FOUND');
+    }
+
+    if (!['CREATED', 'PENDING', 'DISPUTED'].includes(order.status)) {
+      throw new AppError(400, 'Cannot update payer name for terminal orders', 'INVALID_STATE');
+    }
+
+    const nextMetadata = {
+      ...((order.metadata as Record<string, unknown> | null) ?? {}),
+      expectedSenderName: input.expectedSenderName,
+    };
+
+    await db
+      .update(orders)
+      .set({ metadata: nextMetadata, updatedAt: new Date() })
+      .where(eq(orders.id, orderId));
+
+    res.json({ ok: true, expectedSenderName: input.expectedSenderName });
   } catch (err) {
     next(err);
   }

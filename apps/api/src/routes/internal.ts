@@ -8,7 +8,7 @@ import {
 } from '@seedhape/shared';
 
 import { db } from '../db/index.js';
-import { merchants, deviceTokens, orders, transactions } from '../db/schema/index.js';
+import { merchants, deviceTokens, orders, transactions, disputes } from '../db/schema/index.js';
 import { requireApiKey, requireDeviceToken } from '../middleware/auth.js';
 import { enqueueNotification } from '../queues/notification-processor.js';
 import { logger } from '../lib/logger.js';
@@ -94,6 +94,88 @@ router.get('/device/transactions', requireApiKey, async (req, res, next) => {
       .offset(offset);
 
     res.json({ data: rows, page, limit });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /internal/device/disputes — mobile app disputes via API key
+router.get('/device/disputes', requireApiKey, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: disputes.id,
+        orderId: disputes.orderId,
+        amount: orders.amount,
+        resolution: disputes.resolution,
+        screenshotUrl: disputes.screenshotUrl,
+        resolutionNote: disputes.resolutionNote,
+        createdAt: disputes.createdAt,
+        resolvedAt: disputes.resolvedAt,
+      })
+      .from(disputes)
+      .innerJoin(orders, eq(orders.id, disputes.orderId))
+      .where(eq(orders.merchantId, req.merchantId!))
+      .orderBy(desc(disputes.createdAt));
+
+    res.json({ data: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /internal/device/disputes/:id — mobile app dispute resolution via API key
+router.put('/device/disputes/:id', requireApiKey, async (req, res, next) => {
+  try {
+    const disputeId = String(req.params['id'] ?? '');
+    const { resolution, resolutionNote } = req.body as {
+      resolution: 'APPROVED' | 'REJECTED';
+      resolutionNote?: string;
+    };
+
+    if (!['APPROVED', 'REJECTED'].includes(resolution)) {
+      throw new AppError(400, 'Invalid resolution', 'INVALID_RESOLUTION');
+    }
+
+    const [dispute] = await db
+      .select()
+      .from(disputes)
+      .where(eq(disputes.id, disputeId))
+      .limit(1);
+
+    if (!dispute) throw new AppError(404, 'Dispute not found', 'DISPUTE_NOT_FOUND');
+
+    const [order] = await db
+      .select({ merchantId: orders.merchantId })
+      .from(orders)
+      .where(eq(orders.id, dispute.orderId))
+      .limit(1);
+
+    if (order?.merchantId !== req.merchantId) {
+      throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+    }
+
+    const now = new Date();
+    await db
+      .update(disputes)
+      .set({ resolution, resolutionNote, resolvedAt: now, updatedAt: now })
+      .where(eq(disputes.id, dispute.id));
+
+    await db
+      .update(orders)
+      .set({
+        status: resolution === 'APPROVED' ? 'VERIFIED' : 'REJECTED',
+        updatedAt: now,
+      })
+      .where(eq(orders.id, dispute.orderId));
+
+    const { enqueueWebhook } = await import('../queues/webhook.js');
+    void enqueueWebhook({
+      orderId: dispute.orderId,
+      event: 'order.resolved',
+    });
+
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }
@@ -216,6 +298,16 @@ router.post('/notifications', requireDeviceToken, async (req, res, next) => {
     const merchantId = req.deviceMerchantId!;
 
     for (const notification of notifications) {
+      logger.info(
+        {
+          merchantId,
+          amount: notification.amount,
+          senderName: notification.senderName,
+          upiApp: notification.upiApp,
+          transactionNote: notification.transactionNote,
+        },
+        'UPI notification received',
+      );
       await enqueueNotification(merchantId, notification);
     }
 

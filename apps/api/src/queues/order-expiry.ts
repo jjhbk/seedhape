@@ -19,7 +19,7 @@ export const orderExpiryQueue = new Queue(QUEUE_NAME, {
 
 export async function enqueueOrderExpiry(orderId: string, expiresAt: Date): Promise<void> {
   const delay = Math.max(0, expiresAt.getTime() - Date.now());
-  await orderExpiryQueue.add('expire', { orderId }, { delay, jobId: `expire:${orderId}` });
+  await orderExpiryQueue.add('expire', { orderId }, { delay, jobId: `expire-${orderId}` });
 }
 
 export function startOrderExpiryWorker(): Worker {

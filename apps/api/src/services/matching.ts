@@ -11,6 +11,29 @@ export type MatchResult =
   | { matched: true; orderId: string; method: 'tn_field' | 'amount_window' }
   | { matched: false; reason: string };
 
+function normalizeName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function namesPartiallyMatch(expected: string, actual: string): boolean {
+  const a = normalizeName(expected);
+  const b = normalizeName(actual);
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  // Direct partial match for cases like "rahul" vs "rahulkumar".
+  if (a.length >= 3 && b.includes(a)) return true;
+  if (b.length >= 3 && a.includes(b)) return true;
+
+  // Token overlap match for cases like "rahul sharma" vs "sharma rahul".
+  const tokenize = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
+  const expectedTokens = tokenize(expected);
+  const actualTokens = tokenize(actual);
+  if (expectedTokens.length === 0 || actualTokens.length === 0) return false;
+
+  return expectedTokens.some((t) => actualTokens.includes(t));
+}
+
 /**
  * Core matching engine.
  *
@@ -52,7 +75,7 @@ export async function matchNotification(
   const windowStart = new Date(Date.now() - 15 * 60 * 1000);
 
   const candidates = await db
-    .select({ id: orders.id })
+    .select({ id: orders.id, metadata: orders.metadata })
     .from(orders)
     .where(
       and(
@@ -63,6 +86,21 @@ export async function matchNotification(
         gte(orders.createdAt, windowStart),
       ),
     );
+
+  // Strategy 2a: amount + expected sender name (if merchant captured payer name in checkout)
+  const normalizedSenderName = senderName ? normalizeName(senderName) : null;
+  const namedCandidates =
+    normalizedSenderName
+      ? candidates.filter((candidate) => {
+          const expected = (candidate.metadata as { expectedSenderName?: string } | null)
+            ?.expectedSenderName;
+          return typeof expected === 'string' && namesPartiallyMatch(expected, senderName!);
+        })
+      : [];
+
+  if (namedCandidates.length === 1 && namedCandidates[0]) {
+    return verifyAndSettle(namedCandidates[0].id, merchantId, amount, notification, 'amount_window');
+  }
 
   if (candidates.length === 0) {
     return { matched: false, reason: 'no_matching_orders' };
@@ -133,6 +171,25 @@ async function verifyAndSettle(
 
     void enqueueWebhook({ orderId, event: 'order.disputed' });
     return { matched: false, reason: 'amount_mismatch' };
+  }
+
+  const expectedSenderName = (order.metadata as { expectedSenderName?: string } | null)
+    ?.expectedSenderName;
+  if (expectedSenderName && notification.senderName) {
+    if (!namesPartiallyMatch(expectedSenderName, notification.senderName)) {
+      logger.warn(
+        { orderId, expectedSenderName, receivedSenderName: notification.senderName },
+        'Sender name mismatch — flagging as DISPUTED',
+      );
+
+      await db
+        .update(orders)
+        .set({ status: 'DISPUTED', updatedAt: new Date() })
+        .where(eq(orders.id, orderId));
+
+      void enqueueWebhook({ orderId, event: 'order.disputed' });
+      return { matched: false, reason: 'sender_name_mismatch' };
+    }
   }
 
   const now = new Date();

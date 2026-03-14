@@ -28,7 +28,8 @@ object NotificationParser {
     )
 
     fun parse(packageName: String, title: String, body: String): ParsedPayment? {
-        return parsers[packageName]?.invoke(title, body)
+        val appSpecific = parsers[packageName]?.invoke(title, body)
+        return appSpecific ?: parseGeneric(title, body)
     }
 
     // ─── PhonePe ─────────────────────────────────────────────────────────────
@@ -42,8 +43,7 @@ object NotificationParser {
             .find(body)?.groupValues?.get(1)
         val note = Regex("""Note[:\s]+(\S+)""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
-        val sender = Regex("""paid to (.+?)(?:\s*\||\s*$)""", RegexOption.IGNORE_CASE)
-            .find(title)?.groupValues?.get(1)?.trim()
+        val sender = extractSenderName(title, body)
 
         return ParsedPayment(amount, utr, note, sender)
     }
@@ -63,7 +63,7 @@ object NotificationParser {
         val note = Regex("""(?:Note|tn)[:\s]+(\S+)""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
 
-        return ParsedPayment(amount, utr, note, sender)
+        return ParsedPayment(amount, utr, note, sender ?: extractSenderName(title, body))
     }
 
     // ─── Paytm ───────────────────────────────────────────────────────────────
@@ -76,8 +76,7 @@ object NotificationParser {
             .find(body)?.groupValues?.get(1)
         val note = Regex("""(?:Remarks|Note|tn)[:\s]+(\S+)""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
-        val sender = Regex("""(?:from|by)\s+(.+?)(?:\s+has|\s+paid|\s*$)""", RegexOption.IGNORE_CASE)
-            .find(body)?.groupValues?.get(1)?.trim()
+        val sender = extractSenderName(title, body)
 
         return ParsedPayment(amount, utr, note, sender)
     }
@@ -104,7 +103,7 @@ object NotificationParser {
         val utr = Regex("""(?:Ref|Transaction ID)[:\s]+(\w{12,20})""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
 
-        return ParsedPayment(amount, utr, null, null)
+        return ParsedPayment(amount, utr, null, extractSenderName(title, body))
     }
 
     // ─── WhatsApp Pay ────────────────────────────────────────────────────────
@@ -113,7 +112,7 @@ object NotificationParser {
             .find(body) ?: return null
         val amount = parseAmount(amountMatch.groupValues[1]) ?: return null
 
-        return ParsedPayment(amount, null, null, title.trim())
+        return ParsedPayment(amount, null, null, extractSenderName(title, body) ?: title.trim())
     }
 
     // ─── CRED ────────────────────────────────────────────────────────────────
@@ -124,7 +123,50 @@ object NotificationParser {
         val utr = Regex("""(?:Ref|UTR)[:\s]+(\d{12,20})""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
 
-        return ParsedPayment(amount, utr, null, null)
+        return ParsedPayment(amount, utr, null, extractSenderName(title, body))
+    }
+
+    // ─── Helper ──────────────────────────────────────────────────────────────
+    /**
+     * Generic fallback parser for changing notification templates.
+     * Handles notifications that only include payer name + amount.
+     */
+    private fun parseGeneric(title: String, body: String): ParsedPayment? {
+        val text = "$title $body"
+        val amountMatch = Regex("""(?:₹|Rs\.?)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+            .find(text) ?: return null
+        val amount = parseAmount(amountMatch.groupValues[1]) ?: return null
+
+        val utr = Regex("""(?:UPI Ref|Ref|UTR|Txn(?:\s*ID)?)[:\s#-]+([A-Za-z0-9]{8,24})""", RegexOption.IGNORE_CASE)
+            .find(text)?.groupValues?.get(1)
+        val note = Regex("""(?:Note|Remarks|tn)[:\s]+(\S+)""", RegexOption.IGNORE_CASE)
+            .find(text)?.groupValues?.get(1)
+        val sender = extractSenderName(title, body)
+
+        return ParsedPayment(amount, utr, note, sender)
+    }
+
+    private fun extractSenderName(title: String, body: String): String? {
+        val text = "$title | $body"
+        val sources = listOf(title, body, text)
+        val patterns = listOf(
+            Regex("""(?:^|[\s|•·,])([\p{L}][\p{L}\p{N} ._@&-]{1,80}?)\s+has\s+(?:sent|paid)\b""", RegexOption.IGNORE_CASE),
+            Regex("""(?:received\s+from|from)\s+([\p{L}][\p{L}\p{N} ._@&-]{1,80}?)(?:\s*(?:[|•·,]|via|upi|ref|txn|to\b|$))""", RegexOption.IGNORE_CASE),
+            Regex("""paid\s+by\s+([\p{L}][\p{L}\p{N} ._@&-]{1,80}?)(?:\s*(?:[|•·,]|via|upi|ref|txn|$))""", RegexOption.IGNORE_CASE),
+            Regex("""sender[:\s]+([\p{L}][\p{L}\p{N} ._@&-]{1,80})""", RegexOption.IGNORE_CASE),
+        )
+
+        for (source in sources) {
+            for (pattern in patterns) {
+                val match = pattern.find(source)
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.trim()
+                    ?.trim('.', ',', '|', '•', '·', '-', ':')
+                if (!match.isNullOrBlank()) return match
+            }
+        }
+        return null
     }
 
     // ─── Helper ──────────────────────────────────────────────────────────────

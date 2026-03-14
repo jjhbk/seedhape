@@ -197,7 +197,7 @@ const sp = new SeedhaPe({ apiKey: 'sp_live_...' });
 
 // Create an order
 const order = await sp.createOrder({
-  amount: 49900,        // ₹499.00 in paise
+  amount: 100,          // ₹1.00 in paise
   currency: 'INR',
   description: 'Pro subscription',
 });
@@ -260,9 +260,9 @@ if (result.status === 'VERIFIED') {
 function Savings() {
   const rows = [
     { gmv: '₹1L / month',  razorpay: '₹2,000–3,000',  seedhape: '₹0',   plan: 'Free plan' },
-    { gmv: '₹10L / month', razorpay: '₹20,000–30,000', seedhape: '₹499', plan: 'Starter plan' },
-    { gmv: '₹50L / month', razorpay: '₹1L–1.5L',       seedhape: '₹1,499', plan: 'Growth plan' },
-    { gmv: '₹1Cr / month', razorpay: '₹2L–3L',         seedhape: '₹3,999', plan: 'Pro plan' },
+    { gmv: '₹10L / month', razorpay: '₹20,000–30,000', seedhape: '₹1', plan: 'Starter plan' },
+    { gmv: '₹50L / month', razorpay: '₹1L–1.5L',       seedhape: '₹2', plan: 'Growth plan' },
+    { gmv: '₹1Cr / month', razorpay: '₹2L–3L',         seedhape: '₹3', plan: 'Pro plan' },
   ];
 
   return (

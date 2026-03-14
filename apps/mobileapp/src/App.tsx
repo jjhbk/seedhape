@@ -15,6 +15,13 @@ import { ensureBackgroundSyncRunning, getApiKey, registerDevice } from './servic
 
 const Tab = createBottomTabNavigator();
 
+type LastNotification = {
+  amount: number;
+  senderName?: string;
+  upiApp?: string;
+  receivedAt: string;
+};
+
 function TabGlyph({ label, color }: { label: string; color: string }) {
   return (
     <View style={[styles.tabGlyph, { borderColor: color }]}>
@@ -26,6 +33,7 @@ function TabGlyph({ label, color }: { label: string; color: string }) {
 export default function App() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+  const [lastNotification, setLastNotification] = useState<LastNotification | null>(null);
 
   useEffect(() => {
     getApiKey().then((key) => {
@@ -54,6 +62,12 @@ export default function App() {
 
     startNotificationListener((n) => {
       console.log('[SeedhaPe] Payment detected:', n.upiApp, '₹', n.amount / 100);
+      setLastNotification({
+        amount: n.amount,
+        senderName: n.senderName,
+        upiApp: n.upiApp,
+        receivedAt: n.receivedAt,
+      });
     });
   }
 
@@ -107,7 +121,7 @@ export default function App() {
           name="Home"
           options={{ title: 'Home', tabBarIcon: ({ color }) => <TabGlyph label="H" color={color} /> }}
         >
-          {() => <HomeScreen apiKey={apiKey} />}
+          {() => <HomeScreen apiKey={apiKey} lastNotification={lastNotification} />}
         </Tab.Screen>
         <Tab.Screen
           name="Transactions"

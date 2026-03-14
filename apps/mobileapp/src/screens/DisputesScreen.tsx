@@ -5,9 +5,7 @@ import {
 } from 'react-native';
 
 import { paiseToRupees } from '../shared';
-import Config from '../config';
-
-const API_URL = Config.API_URL;
+import { getDisputes, resolveDispute } from '../services/api';
 
 type Dispute = {
   id: string;
@@ -28,13 +26,8 @@ export default function DisputesScreen({ apiKey }: Props) {
   useEffect(() => { loadDisputes(); }, []);
 
   async function loadDisputes() {
-    const res = await fetch(`${API_URL}/v1/merchant/disputes`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (res.ok) {
-      const data = await res.json() as { data: Dispute[] };
-      setDisputes(data.data ?? []);
-    }
+    const data = await getDisputes(apiKey) as { data: Dispute[] };
+    setDisputes(data.data ?? []);
   }
 
   const onRefresh = useCallback(async () => {
@@ -48,12 +41,12 @@ export default function DisputesScreen({ apiKey }: Props) {
       resolution === 'APPROVED' ? 'Approve Dispute' : 'Reject Dispute',
       'Add a resolution note (optional):',
       async (note) => {
-        await fetch(`${API_URL}/v1/merchant/disputes/${disputeId}`, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resolution, resolutionNote: note || undefined }),
-        });
-        await loadDisputes();
+        try {
+          await resolveDispute(apiKey, disputeId, resolution, note || undefined);
+          await loadDisputes();
+        } catch {
+          Alert.alert('Failed', 'Could not resolve dispute. Please try again.');
+        }
       },
       'plain-text',
     );

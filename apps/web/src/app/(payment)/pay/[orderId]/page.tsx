@@ -16,6 +16,7 @@ type OrderData = {
   upiUri: string;
   qrCode: string;
   expiresAt: string;
+  expectedSenderName: string | null;
 };
 
 export default function PaymentPage() {
@@ -26,6 +27,9 @@ export default function PaymentPage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
+  const [payerName, setPayerName] = useState('');
+  const [savingPayerName, setSavingPayerName] = useState(false);
+  const [payerNameFeedback, setPayerNameFeedback] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -41,6 +45,7 @@ export default function PaymentPage() {
       if (!res.ok) throw new Error('Order not found');
       const data = await res.json() as OrderData;
       setOrder(data);
+      setPayerName(data.expectedSenderName ?? '');
       setLoading(false);
 
       if (!['VERIFIED', 'EXPIRED', 'REJECTED', 'RESOLVED'].includes(data.status)) {
@@ -59,6 +64,9 @@ export default function PaymentPage() {
         if (!res.ok) return;
         const data = await res.json() as OrderData;
         setOrder(data);
+        if (data.expectedSenderName) {
+          setPayerName((prev) => prev || data.expectedSenderName || '');
+        }
         if (['VERIFIED', 'EXPIRED', 'REJECTED', 'RESOLVED'].includes(data.status)) {
           if (pollRef.current) clearInterval(pollRef.current);
         }
@@ -66,6 +74,29 @@ export default function PaymentPage() {
         // silently ignore poll errors
       }
     }, 3000);
+  }
+
+  async function savePayerName() {
+    if (!order || payerName.trim().length < 2) return;
+    setSavingPayerName(true);
+    setPayerNameFeedback(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/pay/${order.id}/expectation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedSenderName: payerName.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? 'Failed to save payer name');
+      setOrder({ ...order, expectedSenderName: payerName.trim() });
+      setPayerNameFeedback('Saved. We will use this name for faster matching.');
+    } catch (err) {
+      setPayerNameFeedback(
+        err instanceof Error ? err.message : 'Could not save payer name. Please try again.',
+      );
+    } finally {
+      setSavingPayerName(false);
+    }
   }
 
   async function submitScreenshot() {
@@ -167,6 +198,31 @@ export default function PaymentPage() {
             <p className="text-center text-sm text-gray-500 mb-4">
               Scan with any UPI app to pay
             </p>
+
+            <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+              <p className="text-xs text-emerald-800 mb-2">
+                Enter payer name exactly as shown in UPI app notification for faster verification
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={payerName}
+                  onChange={(e) => setPayerName(e.target.value)}
+                  placeholder="e.g. Rahul Sharma"
+                  className="flex-1 rounded-lg border border-emerald-200 px-3 py-2 text-sm outline-none focus:border-emerald-400"
+                />
+                <button
+                  type="button"
+                  onClick={savePayerName}
+                  disabled={savingPayerName || payerName.trim().length < 2}
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {savingPayerName ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+              {payerNameFeedback && (
+                <p className="mt-2 text-xs text-emerald-700">{payerNameFeedback}</p>
+              )}
+            </div>
 
             <a
               href={order.upiUri}

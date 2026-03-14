@@ -125,6 +125,7 @@ export async function getOrderByIdPublic(orderId: string) {
       expiresAt: orders.expiresAt,
       createdAt: orders.createdAt,
       verifiedAt: orders.verifiedAt,
+      metadata: orders.metadata,
     })
     .from(orders)
     .where(eq(orders.id, orderId))

@@ -138,3 +138,31 @@ export async function getTransactions(apiKey: string, page = 1) {
   if (!res.ok) return { data: [] };
   return res.json();
 }
+
+export async function getDisputes(apiKey: string) {
+  const res = await fetch(`${API_URL}/internal/device/disputes`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return { data: [] };
+  return res.json();
+}
+
+export async function resolveDispute(
+  apiKey: string,
+  disputeId: string,
+  resolution: 'APPROVED' | 'REJECTED',
+  resolutionNote?: string,
+) {
+  const res = await fetch(`${API_URL}/internal/device/disputes/${disputeId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ resolution, resolutionNote }),
+  });
+  if (!res.ok) {
+    throw new Error(`Dispute resolution failed: ${res.status}`);
+  }
+  return res.json();
+}

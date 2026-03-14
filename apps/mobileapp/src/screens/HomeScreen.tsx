@@ -27,8 +27,17 @@ type Transaction = {
 };
 
 type Props = { apiKey: string };
+type LastNotification = {
+  amount: number;
+  senderName?: string;
+  upiApp?: string;
+  receivedAt: string;
+};
 
-export default function HomeScreen({ apiKey }: Props) {
+export default function HomeScreen({
+  apiKey,
+  lastNotification,
+}: Props & { lastNotification: LastNotification | null }) {
   const [merchant, setMerchant] = useState<Merchant | null>(null);
   const [recentTxs, setRecentTxs] = useState<Transaction[]>([]);
   const [hasPermission, setHasPermission] = useState(false);
@@ -93,6 +102,19 @@ export default function HomeScreen({ apiKey }: Props) {
       {merchant && !merchant.upiId && (
         <View style={styles.infoBanner}>
           <Text style={styles.infoText}>Set your UPI ID in Settings to start accepting payments.</Text>
+        </View>
+      )}
+
+      {lastNotification && (
+        <View style={styles.infoBanner}>
+          <Text style={styles.notificationTitle}>Notification captured</Text>
+          <Text style={styles.infoText}>
+            {lastNotification.senderName ?? 'Unknown payer'} paid ₹{paiseToRupees(lastNotification.amount)}
+            {' '}via {lastNotification.upiApp ?? 'UPI app'}
+          </Text>
+          <Text style={styles.txDate}>
+            {new Date(lastNotification.receivedAt).toLocaleTimeString('en-IN')}
+          </Text>
         </View>
       )}
 
@@ -162,6 +184,7 @@ const styles = StyleSheet.create({
   warningText: { fontSize: 13, color: '#b91c1c' },
   infoBanner: { margin: 16, padding: 14, backgroundColor: '#fefce8', borderRadius: 12, borderWidth: 1, borderColor: '#fde68a' },
   infoText: { fontSize: 13, color: '#92400e' },
+  notificationTitle: { fontSize: 13, fontWeight: '700', color: '#854d0e', marginBottom: 4 },
   statsRow: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginBottom: 16 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#dcfce7' },
   statValue: { fontSize: 24, fontWeight: '700', color: '#111', marginBottom: 4 },
