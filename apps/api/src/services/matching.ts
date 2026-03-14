@@ -1,4 +1,4 @@
-import { and, eq, gte, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 
 import type { ParsedNotification } from '@seedhape/shared';
 
@@ -15,7 +15,7 @@ export type MatchResult =
  * Core matching engine.
  *
  * Strategy 1 (primary): Extract order ID from `tn` field, verify amount + expiry.
- * Strategy 2 (secondary): amount + merchantId within 5min window → single match = VERIFIED,
+ * Strategy 2 (secondary): amount + merchantId within 15min window → single match = VERIFIED,
  *   collision = DISPUTED.
  */
 export async function matchNotification(
@@ -47,8 +47,9 @@ export async function matchNotification(
     }
   }
 
-  // Strategy 2: amount + merchant + 5-minute window
-  const windowStart = new Date(Date.now() - 5 * 60 * 1000);
+  // Strategy 2: amount + merchant + 15-minute window.
+  // This supports UPI notifications that only include payer name + amount.
+  const windowStart = new Date(Date.now() - 15 * 60 * 1000);
 
   const candidates = await db
     .select({ id: orders.id })
@@ -57,7 +58,7 @@ export async function matchNotification(
       and(
         eq(orders.merchantId, merchantId),
         eq(orders.amount, amount),
-        eq(orders.status, 'PENDING'),
+        inArray(orders.status, ['CREATED', 'PENDING']),
         gte(orders.expiresAt, new Date()),
         gte(orders.createdAt, windowStart),
       ),

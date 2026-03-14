@@ -2,6 +2,7 @@ import { CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 
 import { PLAN_LIMITS } from '@seedhape/shared';
+import { PricingCheckoutButton } from '@/components/marketing/PricingCheckoutButton';
 
 type PlanKey = 'FREE' | 'STARTER' | 'GROWTH' | 'PRO';
 
@@ -13,9 +14,9 @@ const PLANS: {
   highlight?: boolean;
 }[] = [
   { key: 'FREE',    name: 'Free',    price: 0,    description: 'Try it out, no credit card needed.' },
-  { key: 'STARTER', name: 'Starter', price: 499,  description: 'Solo entrepreneurs and side hustles.', highlight: true },
-  { key: 'GROWTH',  name: 'Growth',  price: 1499, description: 'Growing stores and small teams.' },
-  { key: 'PRO',     name: 'Pro',     price: 3999, description: 'High-volume merchants and agencies.' },
+  { key: 'STARTER', name: 'Starter', price: 1,  description: 'Solo entrepreneurs and side hustles.', highlight: true },
+  { key: 'GROWTH',  name: 'Growth',  price: 2, description: 'Growing stores and small teams.' },
+  { key: 'PRO',     name: 'Pro',     price: 3, description: 'High-volume merchants and agencies.' },
 ];
 
 const FEATURES: { label: string; plans: Record<PlanKey, string | boolean> }[] = [
@@ -116,16 +117,10 @@ export default function PricingPage() {
               </span>
               {plan.price > 0 && <span className="text-gray-400 ml-1">/mo</span>}
             </div>
-            <Link
-              href="/sign-up"
-              className={`block text-center rounded-xl py-2.5 text-sm font-semibold transition-colors ${
-                plan.highlight
-                  ? 'bg-green-500 text-white hover:bg-green-600'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {plan.price === 0 ? 'Get started free' : 'Start free trial'}
-            </Link>
+            <PricingCheckoutButton
+              planKey={plan.key}
+              highlight={!!plan.highlight}
+            />
           </div>
         ))}
       </section>

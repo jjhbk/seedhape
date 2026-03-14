@@ -5,7 +5,7 @@ import multer from 'multer';
 import { put } from '@vercel/blob';
 
 import { db } from '../db/index.js';
-import { orders, disputes } from '../db/schema/index.js';
+import { orders, disputes, merchants } from '../db/schema/index.js';
 import { getOrderByIdPublic } from '../services/orders.js';
 import { AppError } from '../middleware/error-handler.js';
 
@@ -25,10 +25,21 @@ const upload = multer({
 // GET /v1/pay/:orderId — public payment page data
 router.get('/:orderId', async (req, res, next) => {
   try {
-    const order = await getOrderByIdPublic(req.params['orderId']!);
+    const orderId = String(req.params['orderId']);
+    const order = await getOrderByIdPublic(orderId);
 
     if (!order) {
       throw new AppError(404, 'Order not found', 'ORDER_NOT_FOUND');
+    }
+
+    const [merchant] = await db
+      .select({ status: merchants.status })
+      .from(merchants)
+      .where(eq(merchants.id, order.merchantId))
+      .limit(1);
+
+    if (!merchant || merchant.status !== 'ONLINE') {
+      throw new AppError(503, 'Merchant is offline. Payments are temporarily unavailable.', 'MERCHANT_OFFLINE');
     }
 
     const qrCodeDataUrl = await QRCode.toDataURL(order.upiUri, {
@@ -55,7 +66,7 @@ router.get('/:orderId', async (req, res, next) => {
 // POST /v1/pay/:orderId/screenshot — dispute screenshot upload to Vercel Blob
 router.post('/:orderId/screenshot', upload.single('screenshot'), async (req, res, next) => {
   try {
-    const orderId = req.params['orderId']!;
+    const orderId = String(req.params['orderId']);
     const order = await getOrderByIdPublic(orderId);
 
     if (!order) {
@@ -98,10 +109,21 @@ router.post('/:orderId/screenshot', upload.single('screenshot'), async (req, res
 // GET /qr/:orderId — return QR image (PNG)
 router.get('/qr/:orderId', async (req, res, next) => {
   try {
-    const order = await getOrderByIdPublic(req.params['orderId']!);
+    const orderId = String(req.params['orderId']);
+    const order = await getOrderByIdPublic(orderId);
 
     if (!order) {
       throw new AppError(404, 'Order not found', 'ORDER_NOT_FOUND');
+    }
+
+    const [merchant] = await db
+      .select({ status: merchants.status })
+      .from(merchants)
+      .where(eq(merchants.id, order.merchantId))
+      .limit(1);
+
+    if (!merchant || merchant.status !== 'ONLINE') {
+      throw new AppError(503, 'Merchant is offline. Payments are temporarily unavailable.', 'MERCHANT_OFFLINE');
     }
 
     const qrBuffer = await QRCode.toBuffer(order.upiUri, {

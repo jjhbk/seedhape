@@ -4,6 +4,7 @@ import {
   StyleSheet, RefreshControl,
 } from 'react-native';
 
+import SeedhaPeMark from '../components/SeedhaPeMark';
 import { getMerchantProfile, getTransactions } from '../services/api';
 import { checkNotificationPermission, requestNotificationPermission } from '../services/notification-bridge';
 import { paiseToRupees } from '../shared';
@@ -64,10 +65,13 @@ export default function HomeScreen({ apiKey }: Props) {
   return (
     <ScrollView
       style={styles.container}
+      contentContainerStyle={{ paddingBottom: 92 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View style={styles.header}>
-        <Text style={styles.businessName}>{merchant?.businessName ?? 'SeedhaPe'}</Text>
+      <View style={styles.headerCard}>
+        <SeedhaPeMark />
+        <Text style={styles.businessName}>{merchant?.businessName ?? 'seedhape merchant'}</Text>
+        <Text style={styles.headerSub}>Live device verification for UPI payments</Text>
         {merchant && (
           <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
             <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
@@ -131,9 +135,25 @@ export default function HomeScreen({ apiKey }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9fafb' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 48 },
-  businessName: { fontSize: 22, fontWeight: '700', color: '#111' },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  headerCard: {
+    marginHorizontal: 16,
+    marginTop: 44,
+    marginBottom: 12,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dcfce7',
+    padding: 18,
+    gap: 8,
+    shadowColor: '#052e16',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  businessName: { fontSize: 24, fontWeight: '800', color: '#0f172a' },
+  headerSub: { fontSize: 13, color: '#64748b' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 13, fontWeight: '600' },
@@ -143,7 +163,7 @@ const styles = StyleSheet.create({
   infoBanner: { margin: 16, padding: 14, backgroundColor: '#fefce8', borderRadius: 12, borderWidth: 1, borderColor: '#fde68a' },
   infoText: { fontSize: 13, color: '#92400e' },
   statsRow: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginBottom: 16 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#f3f4f6' },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#dcfce7' },
   statValue: { fontSize: 24, fontWeight: '700', color: '#111', marginBottom: 4 },
   statLabel: { fontSize: 12, color: '#9ca3af' },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#374151', marginHorizontal: 16, marginBottom: 8 },

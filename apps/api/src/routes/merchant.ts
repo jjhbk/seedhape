@@ -31,6 +31,19 @@ function claimAsString(claims: Record<string, unknown>, key: string): string | u
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
 }
 
+function normalizeDomain(input: string): string | null {
+  const raw = input.trim().toLowerCase();
+  if (!raw) return null;
+  const withProto = raw.includes('://') ? raw : `https://${raw}`;
+
+  try {
+    const url = new URL(withProto);
+    return url.hostname.replace(/^www\./, '') || null;
+  } catch {
+    return null;
+  }
+}
+
 async function getMerchantFromClerk(req: Request, clerkUserId: string) {
   let [merchant] = await db
     .select()
@@ -85,6 +98,8 @@ router.get('/profile', async (req, res, next) => {
       businessName: merchant.businessName,
       upiId: merchant.upiId,
       webhookUrl: merchant.webhookUrl,
+      allowedDomain:
+        (merchant.settings as { allowedDomain?: string | null } | null)?.allowedDomain ?? null,
       status: merchant.status,
       plan: merchant.plan,
       monthlyTxCount: merchant.monthlyTxCount,
@@ -103,6 +118,16 @@ router.put('/profile', async (req, res, next) => {
     const { userId } = getAuth(req);
     const merchant = await getMerchantFromClerk(req, userId!);
     const input = UpdateMerchantProfileSchema.parse(req.body);
+    const mergedSettings = {
+      ...((merchant.settings as Record<string, unknown> | null) ?? {}),
+      ...(input.settings ?? {}),
+    };
+    const rawAllowedDomain = input.allowedDomain ?? (mergedSettings['allowedDomain'] as string | null | undefined);
+    const normalizedAllowedDomain = rawAllowedDomain ? normalizeDomain(rawAllowedDomain) : null;
+
+    if (rawAllowedDomain && !normalizedAllowedDomain) {
+      throw new AppError(400, 'Invalid allowed domain format', 'INVALID_ALLOWED_DOMAIN');
+    }
 
     const [updated] = await db
       .update(merchants)
@@ -111,9 +136,10 @@ router.put('/profile', async (req, res, next) => {
         ...(input.upiId !== undefined && { upiId: input.upiId }),
         ...(input.webhookUrl !== undefined && { webhookUrl: input.webhookUrl }),
         ...(input.webhookSecret && { webhookSecret: input.webhookSecret }),
-        ...(input.settings && {
-          settings: { ...(merchant.settings as object), ...input.settings },
-        }),
+        settings: {
+          ...mergedSettings,
+          allowedDomain: normalizedAllowedDomain,
+        },
         updatedAt: new Date(),
       })
       .where(eq(merchants.id, merchant.id))
@@ -395,7 +421,10 @@ router.post('/webhook/test', async (req, res, next) => {
     };
 
     const body = JSON.stringify(testPayload);
-    const signature = signWebhook(body, merchant.webhookSecret ?? 'test_secret');
+    const signature = signWebhook(
+      body,
+      merchant.webhookSecret ?? process.env['WEBHOOK_SIGNING_SECRET'] ?? 'test_secret',
+    );
 
     try {
       const response = await fetch(merchant.webhookUrl, {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and, desc } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 
 import {
   InternalNotificationPayloadSchema,
@@ -153,6 +153,31 @@ router.post('/device/register', async (req, res, next) => {
       });
 
     res.json({ merchantId: merchant.id, registered: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /internal/device/alerts — lightweight counters for background notification updates
+router.get('/device/alerts', requireDeviceToken, async (req, res, next) => {
+  try {
+    const merchantId = req.deviceMerchantId!;
+
+    const [tx] = await db
+      .select({ totalTransactions: count(transactions.id) })
+      .from(transactions)
+      .where(eq(transactions.merchantId, merchantId));
+
+    const [disputed] = await db
+      .select({ totalDisputedOrders: count(orders.id) })
+      .from(orders)
+      .where(and(eq(orders.merchantId, merchantId), eq(orders.status, 'DISPUTED')));
+
+    res.json({
+      totalTransactions: Number(tx?.totalTransactions ?? 0),
+      totalDisputedOrders: Number(disputed?.totalDisputedOrders ?? 0),
+      serverTime: new Date().toISOString(),
+    });
   } catch (err) {
     next(err);
   }

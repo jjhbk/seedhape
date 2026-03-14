@@ -1,42 +1,44 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Text, ActivityIndicator, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Text, ActivityIndicator, View, StyleSheet, PermissionsAndroid, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import DeviceInfo from 'react-native-device-info';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import HomeScreen from './screens/HomeScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import DisputesScreen from './screens/DisputesScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ApiKeyScreen from './screens/ApiKeyScreen';
+import SeedhaPeMark from './components/SeedhaPeMark';
 import { startNotificationListener } from './services/notification-bridge';
-import { getApiKey, registerDevice, sendHeartbeat } from './services/api';
+import { ensureBackgroundSyncRunning, getApiKey, registerDevice } from './services/api';
 
 const Tab = createBottomTabNavigator();
+
+function TabGlyph({ label, color }: { label: string; color: string }) {
+  return (
+    <View style={[styles.tabGlyph, { borderColor: color }]}>
+      <Text style={[styles.tabGlyphText, { color }]}>{label}</Text>
+    </View>
+  );
+}
 
 export default function App() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     getApiKey().then((key) => {
       setApiKey(key);
       setChecking(false);
     });
-    return () => {
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-    };
   }, []);
 
   useEffect(() => {
     if (!apiKey) return;
+    ensureAndroidNotificationPermission();
+    ensureBackgroundSyncRunning();
     initApp(apiKey);
-    startHeartbeat();
-    return () => {
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-    };
   }, [apiKey]);
 
   async function initApp(key: string) {
@@ -55,20 +57,16 @@ export default function App() {
     });
   }
 
-  function startHeartbeat() {
-    heartbeatRef.current = setInterval(async () => {
-      const deviceId = await AsyncStorage.getItem('deviceId');
-      if (!deviceId) return;
-      sendHeartbeat({ deviceId }).catch(() => {});
-    }, 60_000);
-    AsyncStorage.getItem('deviceId').then((deviceId) => {
-      if (deviceId) sendHeartbeat({ deviceId }).catch(() => {});
-    });
+  async function ensureAndroidNotificationPermission() {
+    if (Platform.OS !== 'android') return;
+    if (Number(Platform.Version) < 33) return;
+    await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
   }
 
   if (checking) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' }}>
+        <SeedhaPeMark />
         <ActivityIndicator color="#16a34a" size="large" />
       </View>
     );
@@ -83,32 +81,49 @@ export default function App() {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#f3f4f6' },
+          tabBarStyle: {
+            position: 'absolute',
+            left: 14,
+            right: 14,
+            bottom: 12,
+            height: 64,
+            borderRadius: 18,
+            borderTopWidth: 1,
+            borderTopColor: '#dcfce7',
+            backgroundColor: '#ffffff',
+            shadowColor: '#052e16',
+            shadowOpacity: 0.08,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            paddingBottom: 6,
+            paddingTop: 6,
+          },
+          tabBarLabelStyle: { fontWeight: '600', fontSize: 11 },
           tabBarActiveTintColor: '#16a34a',
           tabBarInactiveTintColor: '#9ca3af',
         }}
       >
         <Tab.Screen
           name="Home"
-          options={{ title: 'Home', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text> }}
+          options={{ title: 'Home', tabBarIcon: ({ color }) => <TabGlyph label="H" color={color} /> }}
         >
           {() => <HomeScreen apiKey={apiKey} />}
         </Tab.Screen>
         <Tab.Screen
           name="Transactions"
-          options={{ title: 'Transactions', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📋</Text> }}
+          options={{ title: 'Transactions', tabBarIcon: ({ color }) => <TabGlyph label="T" color={color} /> }}
         >
           {() => <TransactionsScreen apiKey={apiKey} />}
         </Tab.Screen>
         <Tab.Screen
           name="Disputes"
-          options={{ title: 'Disputes', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚠️</Text> }}
+          options={{ title: 'Disputes', tabBarIcon: ({ color }) => <TabGlyph label="D" color={color} /> }}
         >
           {() => <DisputesScreen apiKey={apiKey} />}
         </Tab.Screen>
         <Tab.Screen
           name="Settings"
-          options={{ title: 'Settings', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚙️</Text> }}
+          options={{ title: 'Settings', tabBarIcon: ({ color }) => <TabGlyph label="S" color={color} /> }}
         >
           {() => <SettingsScreen apiKey={apiKey} onSignOut={() => setApiKey(null)} />}
         </Tab.Screen>
@@ -116,3 +131,17 @@ export default function App() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabGlyph: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    backgroundColor: '#fff',
+  },
+  tabGlyphText: { fontSize: 10, fontWeight: '800' },
+});

@@ -7,7 +7,7 @@ import { redis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
 
 const QUEUE_NAME = 'heartbeat-monitor';
-const STALE_THRESHOLD_MS = 90_000; // 90 seconds
+const STALE_THRESHOLD_MS = 75_000; // Offline if no heartbeat for >75s
 
 export const heartbeatMonitorQueue = new Queue(QUEUE_NAME, {
   connection: redis,

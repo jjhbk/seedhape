@@ -58,5 +58,13 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(circle at 12% -5%, rgba(16, 185, 129, 0.12), transparent 22%),
+      radial-gradient(circle at 85% 0%, rgba(52, 211, 153, 0.1), transparent 26%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(16, 185, 129, 0.28);
   }
 }

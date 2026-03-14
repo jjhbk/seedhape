@@ -34,6 +34,7 @@ class SeedhaPeNotificationService : NotificationListenerService() {
         if (body.isBlank()) return
 
         val parsed = NotificationParser.parse(sbn.packageName, title, body) ?: return
+        val upiApp = getAppName(sbn.packageName)
 
         val map = Arguments.createMap().apply {
             putString("packageName", sbn.packageName)
@@ -43,12 +44,14 @@ class SeedhaPeNotificationService : NotificationListenerService() {
             parsed.utr?.let { putString("utr", it) }
             parsed.transactionNote?.let { putString("transactionNote", it) }
             parsed.senderName?.let { putString("senderName", it) }
-            putString("upiApp", getAppName(sbn.packageName))
+            putString("upiApp", upiApp)
             putString("receivedAt", Instant.now().toString())
             putString("rawTitle", title)
             putString("rawBody", body)
         }
 
+        // Send directly from native for background reliability, independent of JS runtime state.
+        BackgroundSyncNetwork.sendNotification(this, sbn.packageName, title, body, parsed, upiApp)
         NotificationListenerModule.instance?.emitNotification(map)
     }
 

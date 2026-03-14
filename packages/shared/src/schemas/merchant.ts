@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+const AllowedDomainSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(253)
+  .regex(
+    /^(?=.{1,253}$)(?!-)[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/,
+    'Invalid domain format (example: app.example.com)',
+  );
+
 export const UpdateMerchantProfileSchema = z.object({
   businessName: z.string().min(2).max(100).optional(),
   upiId: z
@@ -8,12 +18,14 @@ export const UpdateMerchantProfileSchema = z.object({
     .optional(),
   webhookUrl: z.string().url().optional().nullable(),
   webhookSecret: z.string().min(16).max(128).optional(),
+  allowedDomain: AllowedDomainSchema.optional().nullable(),
   settings: z
     .object({
       randomizeAmount: z.boolean().optional(),
       randomizeRangePaise: z.number().int().min(1).max(5).optional(),
       orderExpiryMinutes: z.number().int().min(5).max(1440).optional(),
       notificationApps: z.array(z.string()).optional(),
+      allowedDomain: AllowedDomainSchema.optional().nullable(),
     })
     .optional(),
 });
@@ -26,6 +38,7 @@ export const MerchantProfileSchema = z.object({
   businessName: z.string(),
   upiId: z.string().nullable(),
   webhookUrl: z.string().nullable(),
+  allowedDomain: z.string().nullable().optional(),
   status: z.enum(['ONLINE', 'OFFLINE', 'SUSPENDED']),
   plan: z.enum(['FREE', 'STARTER', 'GROWTH', 'PRO']),
   monthlyTxCount: z.number(),

@@ -22,6 +22,39 @@ declare global {
 /**
  * Middleware: authenticate via API key header (Bearer sp_live_xxx or sp_test_xxx)
  */
+
+function normalizeDomain(input: string): string | null {
+  const raw = input.trim().toLowerCase();
+  if (!raw) return null;
+  const withProto = raw.includes('://') ? raw : `https://${raw}`;
+
+  try {
+    const url = new URL(withProto);
+    return url.hostname.replace(/^www\./, '') || null;
+  } catch {
+    return null;
+  }
+}
+
+function getRequestDomain(req: Request): string | null {
+  const explicitDomain = req.headers['x-seedhape-domain'];
+  if (typeof explicitDomain === 'string') {
+    return normalizeDomain(explicitDomain);
+  }
+
+  const origin = req.headers.origin;
+  if (typeof origin === 'string') {
+    return normalizeDomain(origin);
+  }
+
+  const referer = req.headers.referer;
+  if (typeof referer === 'string') {
+    return normalizeDomain(referer);
+  }
+
+  return null;
+}
+
 export async function requireApiKey(
   req: Request,
   _res: Response,
@@ -44,8 +77,10 @@ export async function requireApiKey(
       merchantId: apiKeys.merchantId,
       environment: apiKeys.environment,
       isActive: apiKeys.isActive,
+      merchantSettings: merchants.settings,
     })
     .from(apiKeys)
+    .innerJoin(merchants, eq(merchants.id, apiKeys.merchantId))
     .where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.isActive, true)))
     .limit(1);
 
@@ -61,6 +96,35 @@ export async function requireApiKey(
 
   req.merchantId = keyRecord.merchantId;
   req.environment = keyRecord.environment;
+
+  const configuredDomainRaw = (keyRecord.merchantSettings as { allowedDomain?: string } | null)
+    ?.allowedDomain;
+  const configuredDomain = configuredDomainRaw ? normalizeDomain(configuredDomainRaw) : null;
+
+  if (configuredDomain) {
+    const requestDomain = getRequestDomain(req);
+
+    if (!requestDomain) {
+      return next(
+        new AppError(
+          403,
+          `Missing request domain. Provide Origin/Referer or X-SeedhaPe-Domain for ${configuredDomain}`,
+          'DOMAIN_REQUIRED',
+        ),
+      );
+    }
+
+    if (requestDomain !== configuredDomain) {
+      return next(
+        new AppError(
+          403,
+          `API key locked to ${configuredDomain}. Request domain ${requestDomain} is not allowed.`,
+          'DOMAIN_NOT_ALLOWED',
+        ),
+      );
+    }
+  }
+
   next();
 }
 

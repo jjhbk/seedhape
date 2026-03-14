@@ -1,244 +1,110 @@
-# SeedhaPe Mobile E2E Testing (Local Wi-Fi)
+# SeedhaPe Live E2E Guide (Concise)
 
-This guide runs the full flow on your real Android phone:
-- API backend (`apps/api`)
-- Web dashboard (`apps/web`)
-- Mobile app (`apps/mobileapp`)
+This is the shortest path to test the full real flow in production-like mode:
+1. Pricing checkout creates order.
+2. Customer pays via UPI.
+3. Merchant phone receives notification.
+4. Order verifies.
+5. Billing webhook updates merchant plan.
 
-All services run on your laptop, and the phone connects over local Wi-Fi.
+## 1) Preconditions
 
-## 1) Prerequisites
+- API and Web are running on public HTTPS domains.
+- Android merchant phone has internet, notification listener enabled, battery unrestricted.
+- You have one merchant account in SeedhaPe dashboard.
 
-- Docker running (for Postgres + Redis)
-- Android phone + USB debugging enabled
-- Phone and laptop on the same Wi-Fi network
-- Clerk test keys configured in:
-  - `apps/api/.env`
-  - `apps/web/.env.local`
-  - `apps/mobileapp/.env`
+## 2) Required env values
 
-## 2) Configure local env files
-
-### API env
-Check `apps/api/.env`:
+## API (`apps/api/.env`)
 
 ```env
-DATABASE_URL=postgresql://seedhape:seedhape_dev_password@localhost:5432/seedhape
-REDIS_URL=redis://:seedhape_redis_password@localhost:6379
-API_PORT=3001
-JWT_SECRET=your_long_random_secret
-CLERK_SECRET_KEY=sk_test_...
+NODE_ENV=production
+API_BASE_URL=https://api.yourdomain.com
+
+DATABASE_URL=...
+REDIS_URL=...
+JWT_SECRET=...
+CLERK_SECRET_KEY=sk_live_...
+
+# Incoming billing webhook verify secret
+SEEDHAPE_WEBHOOK_SECRET=<random secret>
+
+# Outgoing merchant webhook signature secret fallback
+WEBHOOK_SIGNING_SECRET=<different random secret>
 ```
 
-### Web env
-Check `apps/web/.env.local`:
+## Web (`apps/web/.env.local` or prod env)
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
-API_BASE_URL=http://localhost:3001
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-CLERK_WEBHOOK_SECRET=whsec_...
-JWT_SECRET=same_as_api_jwt_secret
+NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+API_BASE_URL=https://api.yourdomain.com
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
+CLERK_SECRET_KEY=sk_live_...
+
+# API key used by pricing page checkout route
+SEEDHAPE_BILLING_API_KEY=sp_live_xxx
 ```
 
-### Mobile env (important for phone)
-Edit `apps/mobileapp/.env`:
-
-```env
-SEEDHAPE_API_TARGET=device
-SEEDHAPE_API_URL_ANDROID_DEVICE=http://<YOUR_LAPTOP_LAN_IP>:3001
-SEEDHAPE_API_URL_ANDROID_EMULATOR=http://10.0.2.2:3001
-SEEDHAPE_CLERK_PUBLISHABLE_KEY=pk_test_...
-```
-
-Replace `<YOUR_LAPTOP_LAN_IP>` with your laptop IP on Wi-Fi (example: `192.168.1.23`).
-
-## 3) Start infra + API + web
-
-From repo root:
+Generate secrets:
 
 ```bash
-docker compose up -d
+openssl rand -hex 32
 ```
 
-Run API (terminal 1):
+## 3) Merchant setup (one-time)
 
-```bash
-cd apps/api
-npm run dev
-```
+In `Dashboard -> Settings`:
 
-Run web (terminal 2):
+1. Set `UPI ID`.
+2. Set `Webhook URL`:
+   - `https://api.yourdomain.com/v1/billing/webhooks/seedhape`
+3. Set `Webhook Secret` exactly equal to `SEEDHAPE_WEBHOOK_SECRET` from API env.
+4. Save.
+5. Generate a live API key (`sp_live_...`).
+6. Put that key into web env as `SEEDHAPE_BILLING_API_KEY` and restart web.
+7. Paste same key into mobile app onboarding.
 
-```bash
-cd apps/web
-npm run dev
-```
+## 4) Mobile readiness check
 
-## 4) Ensure DB schema exists
+On phone:
 
-If API logs table errors like `relation "merchants" does not exist`, run:
+1. Open SeedhaPe app.
+2. Confirm merchant profile loads.
+3. Move app to background.
+4. Confirm persistent service notification is visible.
 
-```bash
-cd apps/api
-npm run db:migrate
-```
+On dashboard overview:
 
-Then restart API.
+- Merchant status should become `ONLINE` within about a minute.
 
-## 5) Run mobile app on real Android phone
+## 5) Live E2E payment test
 
-In a new terminal:
+1. Open `https://yourwebdomain.com/pricing`.
+2. Select a paid plan (`STARTER/GROWTH/PRO`).
+3. You should reach `/pay/<orderId>`.
+4. Complete a real UPI payment.
+5. Wait 5-20 seconds.
 
-```bash
-cd apps/mobileapp
-npm run android
-```
+Expected result:
 
-This automatically generates mobile config from `.env` before launch.
+- Pay page status: `VERIFIED`.
+- Dashboard `Transactions`: new verified order appears.
+- Mobile app `Transactions`: same payment appears.
+- Dashboard plan/usage updates to purchased plan.
 
-## 6) E2E test flow
+## 6) Pass/Fail checklist
 
-1. Open web dashboard at `http://localhost:3000`.
-2. Sign in with Clerk test user.
-3. Go to **Dashboard -> Settings**.
-4. Click **New Key** and copy the generated API key.
-5. Open mobile app on phone.
-6. Paste API key in mobile onboarding screen.
-7. Confirm merchant profile loads (home/transactions/disputes/settings tabs).
-8. Create a payment/order from web flow and verify it appears in mobile data.
+Pass if all are true:
 
-## 7) What Step 8 Means (Create order and verify)
+- Order moved `PENDING -> VERIFIED`.
+- Merchant stayed `ONLINE` during test.
+- Billing webhook reached API endpoint successfully.
+- Plan updated for merchant after verified order.
 
-Step 8 is validating the core business loop:
+## 7) If it fails, check these first
 
-1. You create a new order (`sp_ord_...`) for your merchant.
-2. A UPI notification arrives from the device.
-3. Backend matches the notification to that order.
-4. Order status becomes `VERIFIED`.
-5. Mobile transactions list shows the verified payment.
-
-For local testing, you can do this without a real UPI app by sending a mock notification (next section).
-
-## 8) Mock notification test (copy/paste)
-
-Use this to simulate a real payment notification and verify end-to-end flow.
-
-### 8.1 Set variables
-
-```bash
-API=http://localhost:3001
-KEY=sp_live_your_generated_key
-DEVICE_ID=test-device-001
-```
-
-### 8.2 Ensure merchant has UPI ID
-
-In dashboard settings, set a valid `upiId` (example: `merchant@ybl`), then save.
-
-### 8.3 Register a test device and capture `merchantId`
-
-```bash
-REGISTER=$(curl -s -X POST "$API/internal/device/register" \
-  -H "Authorization: Bearer $KEY" \
-  -H "Content-Type: application/json" \
-  -d "{\"deviceId\":\"$DEVICE_ID\",\"appVersion\":\"1.0.0\",\"deviceModel\":\"Mock\"}")
-
-echo "$REGISTER"
-MERCHANT_ID=$(echo "$REGISTER" | sed -n 's/.*"merchantId":"\([^"]*\)".*/\1/p')
-echo "$MERCHANT_ID"
-```
-
-### 8.4 Create an order
-
-```bash
-ORDER=$(curl -s -X POST "$API/v1/orders" \
-  -H "Authorization: Bearer $KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"amount":50000,"description":"E2E test","randomizeAmount":false}')
-
-echo "$ORDER"
-ORDER_ID=$(echo "$ORDER" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-echo "$ORDER_ID"
-```
-
-### 8.5 Send mock notification (with matching order ID in note)
-
-```bash
-curl -s -X POST "$API/internal/notifications" \
-  -H "X-Device-Id: $DEVICE_ID" \
-  -H "X-Merchant-Id: $MERCHANT_ID" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"notifications\": [
-      {
-        \"packageName\": \"com.phonepe.app\",
-        \"title\": \"₹500 paid to My Shop\",
-        \"body\": \"UPI Ref: 123456789012 | Note: $ORDER_ID\",
-        \"amount\": 50000,
-        \"utr\": \"123456789012\",
-        \"transactionNote\": \"$ORDER_ID\",
-        \"senderName\": \"Test User\",
-        \"upiApp\": \"phonepe\",
-        \"receivedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-        \"rawTitle\": \"₹500 paid to My Shop\",
-        \"rawBody\": \"UPI Ref: 123456789012 | Note: $ORDER_ID\"
-      }
-    ]
-  }"
-```
-
-### 8.6 Check order status
-
-```bash
-curl -s -H "Authorization: Bearer $KEY" "$API/v1/orders/$ORDER_ID/status"
-```
-
-Expected: `"status":"VERIFIED"` (may take a few seconds due to queue processing).
-
-## 9) Quick connectivity checks
-
-From phone browser, open:
-
-`http://<YOUR_LAPTOP_LAN_IP>:3001/health`
-
-Expected response:
-
-```json
-{"status":"ok","timestamp":"..."}
-```
-
-If this fails, mobile app will not reach backend.
-
-## 10) Short production guide
-
-1. Deploy API + web behind HTTPS with stable domains.
-2. Use managed Postgres + Redis with backups and monitoring.
-3. Switch all Clerk keys/webhook secret to production values.
-4. Set strict `CORS_ORIGINS` and strong `JWT_SECRET`.
-5. Keep API and worker processes running (notification/webhook queues).
-6. Configure alerting/logging (Sentry + structured logs).
-7. Lock firewall/security groups to required ports only.
-8. Rotate secrets regularly and never commit `.env` files.
-
-## 11) Common issues
-
-- **New Key button does nothing**
-  - Check API terminal logs.
-  - Verify DB migrations were applied.
-
-- **`DATABASE_URL is not set`**
-  - Restart API after env edits.
-  - Ensure `apps/api/.env` exists and has `DATABASE_URL`.
-
-- **Phone cannot connect to API**
-  - Confirm phone/laptop same Wi-Fi.
-  - Confirm `SEEDHAPE_API_URL_ANDROID_DEVICE` uses laptop LAN IP, not `localhost`.
-  - Allow port `3001` through firewall.
-
-- **Metro caching stale config**
-  - In `apps/mobileapp`: `npm run start -- --reset-cache`
-
-- **Android device not detected**
-  - Run `adb devices` and accept device prompt.
+- `Merchant offline`: heartbeat not reaching API.
+- `Invalid signature`: dashboard webhook secret != `SEEDHAPE_WEBHOOK_SECRET`.
+- `Invalid API key`: wrong/disabled `SEEDHAPE_BILLING_API_KEY`.
+- Plan not updated: order metadata missing `source=pricing_page` and `planKey`.
+- Domain lock blocked key: clear `Allowed Domain` or send matching origin/domain.

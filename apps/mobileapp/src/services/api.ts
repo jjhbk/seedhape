@@ -1,10 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
+import { NativeModules } from 'react-native';
 
 import Config from '../config';
 
 const API_URL = Config.API_URL;
 const KEYCHAIN_SERVICE = 'seedhape_api_key';
+const backgroundSync = (NativeModules as { BackgroundSync?: {
+  configureAndStart?: (apiUrl: string, deviceId: string, merchantId: string) => Promise<boolean>;
+  startIfConfigured?: () => Promise<boolean>;
+  stop?: () => Promise<boolean>;
+  isForegroundNotificationEnabled?: () => Promise<boolean>;
+  openAppNotificationSettings?: () => void;
+} }).BackgroundSync;
 
 // ─── API key storage ─────────────────────────────────────────────────────────
 
@@ -21,9 +29,23 @@ export async function getApiKey(): Promise<string | null> {
   }
 }
 
+export async function isForegroundNotificationEnabled(): Promise<boolean> {
+  if (!backgroundSync?.isForegroundNotificationEnabled) return true;
+  return backgroundSync.isForegroundNotificationEnabled().catch(() => true);
+}
+
+export function openAppNotificationSettings(): void {
+  backgroundSync?.openAppNotificationSettings?.();
+}
+
+export async function ensureBackgroundSyncRunning(): Promise<void> {
+  await backgroundSync?.startIfConfigured?.().catch(() => {});
+}
+
 export async function clearApiKey(): Promise<void> {
   await Keychain.resetGenericPassword({ service: KEYCHAIN_SERVICE });
   await AsyncStorage.multiRemove(['deviceId', 'merchantId']);
+  await backgroundSync?.stop?.().catch(() => {});
 }
 
 // ─── Device headers (heartbeat / notifications) ───────────────────────────────
@@ -74,6 +96,7 @@ export async function registerDevice(params: {
   const data = await res.json() as { merchantId: string };
   await AsyncStorage.setItem('merchantId', data.merchantId);
   await AsyncStorage.setItem('deviceId', params.deviceId);
+  await backgroundSync?.configureAndStart?.(API_URL, params.deviceId, data.merchantId).catch(() => {});
   return data;
 }
 

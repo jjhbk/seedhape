@@ -9,6 +9,7 @@ import { internalRouter } from './routes/internal.js';
 import { merchantRouter } from './routes/merchant.js';
 import { payRouter } from './routes/pay.js';
 import { syncRouter } from './routes/sync.js';
+import { billingWebhookRouter } from './routes/billing-webhooks.js';
 import { logger } from './lib/logger.js';
 
 export function createApp() {
@@ -23,6 +24,7 @@ export function createApp() {
     }),
   );
   app.use(compression() as express.RequestHandler);
+  app.use('/v1/billing/webhooks', express.raw({ type: 'application/json', limit: '1mb' }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 
@@ -41,6 +43,7 @@ export function createApp() {
   app.use('/v1/orders', ordersRouter);
   app.use('/v1/merchant', merchantRouter);
   app.use('/v1/pay', payRouter);
+  app.use('/v1/billing/webhooks', billingWebhookRouter);
   app.use('/internal', internalRouter);
   app.use('/internal', syncRouter);
 

@@ -29,7 +29,12 @@ export async function deliverWebhook(orderId: string, payload: WebhookPayload): 
   if (!merchant?.webhookUrl) return;
 
   const body = JSON.stringify(payload);
-  const signature = signWebhook(body, merchant.webhookSecret ?? '');
+  const webhookSecret = merchant.webhookSecret ?? process.env['WEBHOOK_SIGNING_SECRET'] ?? '';
+  if (!webhookSecret) {
+    logger.warn({ orderId }, 'Skipping webhook delivery because webhook secret is not configured');
+    return;
+  }
+  const signature = signWebhook(body, webhookSecret);
 
   // Record the delivery attempt
   const [delivery] = await db

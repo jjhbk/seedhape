@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Save, Plus, Trash2, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import { Save, Plus, Copy, Check, Link2, Eye, EyeOff } from 'lucide-react';
 
 const API_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
 
@@ -11,6 +11,7 @@ type Profile = {
   upiId: string | null;
   webhookUrl: string | null;
   webhookSecret?: string | null;
+  allowedDomain?: string | null;
 };
 
 type ApiKey = {
@@ -59,6 +60,8 @@ export default function SettingsPage() {
         businessName: profile.businessName,
         upiId: profile.upiId,
         webhookUrl: profile.webhookUrl || null,
+        webhookSecret: profile.webhookSecret || undefined,
+        allowedDomain: profile.allowedDomain || null,
       }),
     });
     setSaving(false);
@@ -97,12 +100,15 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Settings</h1>
+    <div className="max-w-3xl space-y-6">
+      <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/40 p-6">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Settings</h1>
+        <p className="text-sm text-slate-500 mt-1">Manage payout profile, webhooks, and production keys.</p>
+      </div>
 
       {/* Profile form */}
-      <form onSubmit={saveProfile} className="bg-white rounded-xl border border-gray-100 p-6 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-4">Business Profile</h2>
+      <form onSubmit={saveProfile} className="bg-white rounded-2xl border border-emerald-100/70 p-6 shadow-sm shadow-emerald-100/50">
+        <h2 className="font-semibold text-slate-900 mb-4">Business Profile</h2>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
@@ -110,7 +116,7 @@ export default function SettingsPage() {
               type="text"
               value={profile.businessName}
               onChange={(e) => setProfile({ ...profile, businessName: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="Your Store Name"
             />
           </div>
@@ -120,11 +126,24 @@ export default function SettingsPage() {
               type="text"
               value={profile.upiId ?? ''}
               onChange={(e) => setProfile({ ...profile, upiId: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
               placeholder="yourname@ybl"
             />
             <p className="text-xs text-gray-400 mt-1">
               Money will be sent directly to this UPI ID
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Domain (API key lock)</label>
+            <input
+              type="text"
+              value={profile.allowedDomain ?? ''}
+              onChange={(e) => setProfile({ ...profile, allowedDomain: e.target.value })}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="app.yourdomain.com"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              When set, this API key can only be used from this domain (read from Origin/Referer or `X-SeedhaPe-Domain`).
             </p>
           </div>
           <div>
@@ -134,17 +153,39 @@ export default function SettingsPage() {
                 type="url"
                 value={profile.webhookUrl ?? ''}
                 onChange={(e) => setProfile({ ...profile, webhookUrl: e.target.value })}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="https://yourapp.com/webhooks/seedhape"
+                className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="https://api.your-domain.com/v1/billing/webhooks/seedhape"
               />
               <button
                 type="button"
                 onClick={testWebhook}
-                className="text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="inline-flex items-center gap-2 text-sm px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50"
               >
+                <Link2 className="h-4 w-4" />
                 Test
               </button>
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Secret</label>
+            <div className="flex gap-2">
+              <input
+                type={showWebhookSecret ? 'text' : 'password'}
+                value={profile.webhookSecret ?? ''}
+                onChange={(e) => setProfile({ ...profile, webhookSecret: e.target.value })}
+                className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
+                placeholder="min 16 chars (used for X-SeedhaPe-Signature)"
+              />
+              <button
+                type="button"
+                onClick={() => setShowWebhookSecret((v) => !v)}
+                className="inline-flex items-center justify-center w-10 border border-slate-200 rounded-xl hover:bg-slate-50"
+                aria-label={showWebhookSecret ? 'Hide webhook secret' : 'Show webhook secret'}
+              >
+                {showWebhookSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Must exactly match `SEEDHAPE_WEBHOOK_SECRET` in your API env.</p>
           </div>
         </div>
         <button
@@ -158,12 +199,12 @@ export default function SettingsPage() {
       </form>
 
       {/* API Keys */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="bg-white rounded-2xl border border-emerald-100/70 p-6 shadow-sm shadow-emerald-100/50">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">API Keys</h2>
+          <h2 className="font-semibold text-slate-900">API Keys</h2>
           <button
             onClick={createApiKey}
-            className="flex items-center gap-1.5 text-sm bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm bg-brand-600 hover:bg-brand-700 text-white px-3 py-2 rounded-xl transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             New Key

@@ -9,18 +9,19 @@ import {
   Webhook,
   Code2,
 } from 'lucide-react';
+import { SeedhaPeLogo } from '@/components/brand/SeedhaPeLogo';
 
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 
 function Nav() {
   return (
-    <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+    <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-md border-b border-emerald-100/80">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">💸</span>
-          <span className="text-lg font-bold text-gray-900 tracking-tight">SeedhaPe</span>
-        </div>
+        <SeedhaPeLogo />
         <div className="hidden md:flex items-center gap-6">
+          <Link href="/docs" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+            Docs
+          </Link>
           <Link href="/pricing" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             Pricing
           </Link>
@@ -399,10 +400,9 @@ function Footer() {
   return (
     <footer className="border-t border-gray-100 py-10 px-6">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-400">
-        <div className="flex items-center gap-2 font-semibold text-gray-600">
-          <span>💸</span> SeedhaPe
-        </div>
+        <SeedhaPeLogo className="opacity-90" />
         <nav className="flex items-center gap-6">
+          <Link href="/docs" className="hover:text-gray-600 transition-colors">Docs</Link>
           <Link href="/pricing" className="hover:text-gray-600 transition-colors">Pricing</Link>
           <Link href="/sign-in"  className="hover:text-gray-600 transition-colors">Sign in</Link>
           <Link href="/sign-up"  className="hover:text-gray-600 transition-colors">Get started</Link>

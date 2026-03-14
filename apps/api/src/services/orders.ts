@@ -7,6 +7,7 @@ import {
   type CreateOrderInput,
   buildUpiUri,
   generateOrderId,
+  PLAN_LIMITS,
   randomizeAmount,
 } from '@seedhape/shared';
 
@@ -31,8 +32,21 @@ export async function createOrder(merchantId: string, input: CreateOrderInput) {
     throw new AppError(403, 'Merchant account is suspended', 'MERCHANT_SUSPENDED');
   }
 
+  if (merchant.status !== 'ONLINE') {
+    throw new AppError(503, 'Merchant is offline. Bring device online to accept payments.', 'MERCHANT_OFFLINE');
+  }
+
   if (!merchant.upiId) {
     throw new AppError(400, 'Merchant UPI ID not configured', 'UPI_ID_NOT_SET');
+  }
+
+  const monthlyLimit = PLAN_LIMITS[merchant.plan];
+  if (Number.isFinite(monthlyLimit) && merchant.monthlyTxCount >= monthlyLimit) {
+    throw new AppError(
+      429,
+      `Plan limit reached for ${merchant.plan}. Upgrade plan to accept more payments this month.`,
+      'PLAN_LIMIT_EXCEEDED',
+    );
   }
 
   // Randomize amount to help disambiguate concurrent orders
@@ -62,7 +76,7 @@ export async function createOrder(merchantId: string, input: CreateOrderInput) {
     description: input.description,
     customerEmail: input.customerEmail,
     customerPhone: input.customerPhone,
-    status: 'CREATED',
+    status: 'PENDING',
     upiUri,
     expiresAt,
     metadata: input.metadata as Record<string, unknown> | undefined,
@@ -101,6 +115,7 @@ export async function getOrderByIdPublic(orderId: string) {
   const [order] = await db
     .select({
       id: orders.id,
+      merchantId: orders.merchantId,
       amount: orders.amount,
       originalAmount: orders.originalAmount,
       currency: orders.currency,

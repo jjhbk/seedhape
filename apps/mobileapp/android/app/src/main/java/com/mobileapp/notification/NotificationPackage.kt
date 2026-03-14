@@ -7,7 +7,10 @@ import com.facebook.react.uimanager.ViewManager
 
 class NotificationPackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-    return listOf(NotificationListenerModule(reactContext))
+    return listOf(
+      NotificationListenerModule(reactContext),
+      BackgroundSyncModule(reactContext),
+    )
   }
 
   override fun createViewManagers(

@@ -29,6 +29,7 @@ Customer pays via UPI → Android app captures notification → Backend matches 
 15. [Dashboard](#dashboard)
 16. [Architecture Decisions](#architecture-decisions)
 17. [Troubleshooting](#troubleshooting)
+18. [Deployment (Render + Vercel)](#deployment-render--vercel)
 
 ---
 
@@ -62,6 +63,20 @@ Customer pays via UPI → Android app captures notification → Backend matches 
 ```
 
 **Key insight**: The `tn` (transaction note) field in a UPI URI carries the order ID. When a customer pays `upi://pay?pa=merchant@ybl&am=500&tn=sp_ord_abc123`, the UPI app includes `sp_ord_abc123` in the payment notification. SeedhaPe reads this to match the payment to the exact order.
+
+---
+
+## Deployment (Render + Vercel)
+
+Detailed production deployment runbook:
+- `DEPLOYMENT_RENDER_VERCEL.md`
+
+It covers:
+- API deployment on Render (Postgres, Redis, build/start, env)
+- Web deployment on Vercel (project config, env)
+- Clerk webhook wiring
+- SeedhaPe billing webhook wiring
+- Post-deploy E2E verification checklist
 
 ---
 
