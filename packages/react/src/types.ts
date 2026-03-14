@@ -5,6 +5,12 @@ export interface PaymentButtonProps {
   description?: string;
   customerEmail?: string;
   customerPhone?: string;
+  /**
+   * The payer's name exactly as it appears in their UPI app.
+   * Strongly recommended — improves payment matching accuracy.
+   * When omitted the modal will prompt the user to enter it before showing the QR code.
+   */
+  expectedSenderName?: string;
   metadata?: Record<string, unknown>;
   onSuccess?: (result: PaymentResult) => void;
   onExpired?: (orderId: string) => void;

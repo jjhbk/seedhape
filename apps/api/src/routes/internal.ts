@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { and, count, desc, eq } from 'drizzle-orm';
+import { z } from 'zod';
 
 import {
   InternalNotificationPayloadSchema,
@@ -13,6 +14,7 @@ import { requireApiKey, requireDeviceToken } from '../middleware/auth.js';
 import { enqueueNotification } from '../queues/notification-processor.js';
 import { logger } from '../lib/logger.js';
 import { AppError } from '../middleware/error-handler.js';
+import { applyPlanForPaidOrder, BillingPlanSchema } from '../services/billing.js';
 
 const router = Router();
 
@@ -312,6 +314,29 @@ router.post('/notifications', requireDeviceToken, async (req, res, next) => {
     }
 
     res.json({ received: notifications.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const ApplyPlanSchema = z.object({
+  orderId: z.string().min(1),
+  planKey: BillingPlanSchema,
+});
+
+// POST /internal/billing/apply-plan — called by the web app's webhook handler after a subscription payment
+router.post('/billing/apply-plan', async (req, res, next) => {
+  try {
+    const secret = req.headers['x-internal-secret'];
+    if (!secret || secret !== process.env['JWT_SECRET']) {
+      throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
+    }
+
+    const { orderId, planKey } = ApplyPlanSchema.parse(req.body);
+    await applyPlanForPaidOrder(orderId, planKey);
+
+    logger.info({ orderId, planKey }, 'Plan applied via billing webhook');
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

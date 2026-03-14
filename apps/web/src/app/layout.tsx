@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
-import { Manrope } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 
 import './globals.css';
 
-const inter = Manrope({ subsets: ['latin'], variable: '--font-inter' });
+const inter = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  weight: ['400', '500', '600', '700', '800'],
+});
 
 export const metadata: Metadata = {
   title: 'SeedhaPe — UPI Payment Middleware',

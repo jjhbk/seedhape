@@ -70,7 +70,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What payment methods do you accept for the subscription?',
-    a: 'We accept all major UPI apps, credit/debit cards, and net banking through Razorpay.',
+    a: 'We accept all major UPI apps',
   },
 ];
 

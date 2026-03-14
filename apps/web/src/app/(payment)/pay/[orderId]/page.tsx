@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { CheckCircle, Clock, XCircle, Smartphone, RefreshCw, Upload } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Smartphone, RefreshCw, Upload, ArrowRight, User } from 'lucide-react';
 
 import { paiseToRupees } from '@seedhape/shared';
 
@@ -24,19 +24,24 @@ export default function PaymentPage() {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Payer name — must be submitted before QR is shown
+  const [payerName, setPayerName] = useState('');
+  const [savingPayerName, setSavingPayerName] = useState(false);
+  const [payerNameError, setPayerNameError] = useState<string | null>(null);
+  // true once name saved this session, or if order already had one when loaded
+  const [nameConfirmed, setNameConfirmed] = useState(false);
+
+  // Screenshot fallback
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
-  const [payerName, setPayerName] = useState('');
-  const [savingPayerName, setSavingPayerName] = useState(false);
-  const [payerNameFeedback, setPayerNameFeedback] = useState<string | null>(null);
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchOrder();
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [params.orderId]);
 
   async function fetchOrder() {
@@ -45,9 +50,12 @@ export default function PaymentPage() {
       if (!res.ok) throw new Error('Order not found');
       const data = await res.json() as OrderData;
       setOrder(data);
-      setPayerName(data.expectedSenderName ?? '');
+      // If the order already has a name (set at creation time by the merchant), skip the gate
+      if (data.expectedSenderName) {
+        setPayerName(data.expectedSenderName);
+        setNameConfirmed(true);
+      }
       setLoading(false);
-
       if (!['VERIFIED', 'EXPIRED', 'REJECTED', 'RESOLVED'].includes(data.status)) {
         startPolling();
       }
@@ -64,9 +72,6 @@ export default function PaymentPage() {
         if (!res.ok) return;
         const data = await res.json() as OrderData;
         setOrder(data);
-        if (data.expectedSenderName) {
-          setPayerName((prev) => prev || data.expectedSenderName || '');
-        }
         if (['VERIFIED', 'EXPIRED', 'REJECTED', 'RESOLVED'].includes(data.status)) {
           if (pollRef.current) clearInterval(pollRef.current);
         }
@@ -76,24 +81,26 @@ export default function PaymentPage() {
     }, 3000);
   }
 
-  async function savePayerName() {
-    if (!order || payerName.trim().length < 2) return;
+  async function confirmPayerName() {
+    const name = payerName.trim();
+    if (name.length < 2) {
+      setPayerNameError('Please enter at least 2 characters.');
+      return;
+    }
     setSavingPayerName(true);
-    setPayerNameFeedback(null);
+    setPayerNameError(null);
     try {
-      const res = await fetch(`${API_URL}/v1/pay/${order.id}/expectation`, {
+      const res = await fetch(`${API_URL}/v1/pay/${order!.id}/expectation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expectedSenderName: payerName.trim() }),
+        body: JSON.stringify({ expectedSenderName: name }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? 'Failed to save payer name');
-      setOrder({ ...order, expectedSenderName: payerName.trim() });
-      setPayerNameFeedback('Saved. We will use this name for faster matching.');
+      if (!res.ok) throw new Error(body.error ?? 'Failed to save name');
+      setOrder({ ...order!, expectedSenderName: name });
+      setNameConfirmed(true);
     } catch (err) {
-      setPayerNameFeedback(
-        err instanceof Error ? err.message : 'Could not save payer name. Please try again.',
-      );
+      setPayerNameError(err instanceof Error ? err.message : 'Could not save name. Please try again.');
     } finally {
       setSavingPayerName(false);
     }
@@ -146,7 +153,7 @@ export default function PaymentPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
 
-        {/* Status header */}
+        {/* Terminal states */}
         {isVerified && (
           <div className="text-center mb-6">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-3" />
@@ -154,7 +161,6 @@ export default function PaymentPage() {
             <p className="text-gray-500 mt-1">Your payment has been verified</p>
           </div>
         )}
-
         {isExpired && (
           <div className="text-center mb-6">
             <XCircle className="h-16 w-16 text-red-500 mx-auto mb-3" />
@@ -162,7 +168,6 @@ export default function PaymentPage() {
             <p className="text-gray-500 mt-1">This payment link is no longer valid</p>
           </div>
         )}
-
         {isDisputed && (
           <div className="text-center mb-6">
             <Clock className="h-16 w-16 text-yellow-500 mx-auto mb-3" />
@@ -171,90 +176,105 @@ export default function PaymentPage() {
           </div>
         )}
 
-        {isPending && (
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Pay Now</h1>
-            {order.description && (
-              <p className="text-gray-500 mt-1">{order.description}</p>
+        {/* Amount — always shown */}
+        <div className="bg-brand-50 rounded-xl p-4 text-center mb-6">
+          <p className="text-sm text-brand-700 mb-1">Amount</p>
+          <p className="text-3xl font-bold text-brand-800">₹{paiseToRupees(order.amount)}</p>
+          {order.description && <p className="text-sm text-brand-600 mt-1">{order.description}</p>}
+        </div>
+
+        {/* ── Step 1: Collect payer name (gates the QR code) ── */}
+        {isPending && !nameConfirmed && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-white text-xs font-bold">1</div>
+              <h2 className="font-semibold text-gray-900 text-sm">Enter your name</h2>
+            </div>
+            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+              Enter your name exactly as it appears in your UPI app. This helps us instantly verify your payment.
+            </p>
+            <div className="relative mb-2">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                value={payerName}
+                onChange={(e) => { setPayerName(e.target.value); setPayerNameError(null); }}
+                onKeyDown={(e) => e.key === 'Enter' && confirmPayerName()}
+                placeholder="e.g. Rahul Sharma"
+                className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                autoComplete="name"
+                autoFocus
+              />
+            </div>
+            {payerNameError && (
+              <p className="text-xs text-red-600 mb-2">{payerNameError}</p>
             )}
+            <button
+              type="button"
+              onClick={confirmPayerName}
+              disabled={savingPayerName || payerName.trim().length < 2}
+              className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50"
+            >
+              {savingPayerName ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <>Continue <ArrowRight className="h-4 w-4" /></>
+              )}
+            </button>
+
+            {/* Step indicator */}
+            <div className="flex justify-center gap-1.5 mt-4">
+              <div className="h-1.5 w-6 rounded-full bg-brand-600" />
+              <div className="h-1.5 w-6 rounded-full bg-gray-200" />
+            </div>
           </div>
         )}
 
-        {/* Amount */}
-        <div className="bg-brand-50 rounded-xl p-4 text-center mb-6">
-          <p className="text-sm text-brand-700 mb-1">Amount</p>
-          <p className="text-3xl font-bold text-brand-800">
-            ₹{paiseToRupees(order.amount)}
-          </p>
-        </div>
-
-        {/* QR + Pay button */}
-        {isPending && (
+        {/* ── Step 2: QR + pay (shown after name confirmed) ── */}
+        {isPending && nameConfirmed && (
           <>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-white text-xs font-bold">2</div>
+              <h2 className="font-semibold text-gray-900 text-sm">Scan &amp; pay</h2>
+              <span className="ml-auto text-xs text-gray-400 flex items-center gap-1">
+                <User className="h-3 w-3" />{payerName}
+              </span>
+            </div>
+
             <div className="flex justify-center mb-4">
-              <img src={order.qrCode} alt="UPI QR Code" className="w-64 h-64 rounded-lg" />
+              <img src={order.qrCode} alt="UPI QR Code" className="w-64 h-64 rounded-xl border border-gray-100" />
             </div>
-
-            <p className="text-center text-sm text-gray-500 mb-4">
-              Scan with any UPI app to pay
-            </p>
-
-            <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
-              <p className="text-xs text-emerald-800 mb-2">
-                Enter payer name exactly as shown in UPI app notification for faster verification
-              </p>
-              <div className="flex gap-2">
-                <input
-                  value={payerName}
-                  onChange={(e) => setPayerName(e.target.value)}
-                  placeholder="e.g. Rahul Sharma"
-                  className="flex-1 rounded-lg border border-emerald-200 px-3 py-2 text-sm outline-none focus:border-emerald-400"
-                />
-                <button
-                  type="button"
-                  onClick={savePayerName}
-                  disabled={savingPayerName || payerName.trim().length < 2}
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  {savingPayerName ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-              {payerNameFeedback && (
-                <p className="mt-2 text-xs text-emerald-700">{payerNameFeedback}</p>
-              )}
-            </div>
+            <p className="text-center text-sm text-gray-500 mb-4">Scan with any UPI app to pay</p>
 
             <a
               href={order.upiUri}
-              className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors mb-4"
             >
               <Smartphone className="h-5 w-5" />
               Open UPI App
             </a>
 
-            <div className="flex items-center justify-center gap-1 mt-4 text-xs text-gray-400">
-              <Clock className="h-3 w-3" />
-              <span>
-                Expires {new Date(order.expiresAt).toLocaleTimeString('en-IN', {
-                  hour: '2-digit', minute: '2-digit',
-                })}
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Expires {new Date(order.expiresAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span className="flex items-center gap-1">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Waiting for payment…
               </span>
             </div>
 
-            <div className="flex items-center justify-center gap-1 mt-2 text-xs text-gray-400">
-              <RefreshCw className="h-3 w-3 animate-spin" />
-              <span>Waiting for payment...</span>
+            {/* Step indicator */}
+            <div className="flex justify-center gap-1.5 mt-2 mb-6">
+              <div className="h-1.5 w-6 rounded-full bg-gray-200" />
+              <div className="h-1.5 w-6 rounded-full bg-brand-600" />
             </div>
 
-            {/* Screenshot dispute fallback */}
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <p className="text-xs text-gray-400 text-center mb-3">
-                Already paid but not verified?
-              </p>
+            {/* Screenshot fallback */}
+            <div className="pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-400 text-center mb-3">Already paid but not verified?</p>
               {uploadDone ? (
-                <p className="text-center text-sm text-green-600 font-medium">
-                  ✓ Screenshot submitted for review
-                </p>
+                <p className="text-center text-sm text-green-600 font-medium">✓ Screenshot submitted for review</p>
               ) : (
                 <div className="space-y-2">
                   <label className="block w-full cursor-pointer">
@@ -286,9 +306,7 @@ export default function PaymentPage() {
           </>
         )}
 
-        <p className="text-center text-xs text-gray-300 mt-6">
-          Order ID: {order.id}
-        </p>
+        <p className="text-center text-xs text-gray-300 mt-6">Order ID: {order.id}</p>
       </div>
     </div>
   );

@@ -339,6 +339,31 @@ router.get('/analytics', async (req, res, next) => {
   }
 });
 
+// GET /v1/merchant/api-keys
+router.get('/api-keys', async (req, res, next) => {
+  try {
+    const { userId } = getAuth(req);
+    const merchant = await getMerchantFromClerk(req, userId!);
+
+    const rows = await db
+      .select({
+        id: apiKeys.id,
+        keyPrefix: apiKeys.keyPrefix,
+        environment: apiKeys.environment,
+        name: apiKeys.name,
+        isActive: apiKeys.isActive,
+        createdAt: apiKeys.createdAt,
+      })
+      .from(apiKeys)
+      .where(eq(apiKeys.merchantId, merchant.id))
+      .orderBy(desc(apiKeys.createdAt));
+
+    res.json({ data: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /v1/merchant/api-keys
 router.post('/api-keys', async (req, res, next) => {
   try {
@@ -375,21 +400,53 @@ router.post('/api-keys', async (req, res, next) => {
   }
 });
 
-// DELETE /v1/merchant/api-keys/:id
-router.delete('/api-keys/:id', async (req, res, next) => {
+// PATCH /v1/merchant/api-keys/:id — enable or disable a key
+router.patch('/api-keys/:id', async (req, res, next) => {
   try {
     const { userId } = getAuth(req);
     const merchant = await getMerchantFromClerk(req, userId!);
+    const { isActive } = req.body as { isActive: boolean };
 
-    await db
+    if (typeof isActive !== 'boolean') {
+      throw new AppError(400, '`isActive` (boolean) is required', 'VALIDATION_ERROR');
+    }
+
+    const [updated] = await db
       .update(apiKeys)
-      .set({ isActive: false })
+      .set({ isActive })
       .where(
         and(
           eq(apiKeys.id, req.params['id']!),
           eq(apiKeys.merchantId, merchant.id),
         ),
-      );
+      )
+      .returning({ id: apiKeys.id });
+
+    if (!updated) throw new AppError(404, 'API key not found', 'NOT_FOUND');
+
+    res.json({ ok: true, isActive });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /v1/merchant/api-keys/:id — permanently delete a key
+router.delete('/api-keys/:id', async (req, res, next) => {
+  try {
+    const { userId } = getAuth(req);
+    const merchant = await getMerchantFromClerk(req, userId!);
+
+    const [deleted] = await db
+      .delete(apiKeys)
+      .where(
+        and(
+          eq(apiKeys.id, req.params['id']!),
+          eq(apiKeys.merchantId, merchant.id),
+        ),
+      )
+      .returning({ id: apiKeys.id });
+
+    if (!deleted) throw new AppError(404, 'API key not found', 'NOT_FOUND');
 
     res.json({ ok: true });
   } catch (err) {

@@ -9,6 +9,13 @@ export interface CreateOrderOptions {
   description?: string;
   customerEmail?: string;
   customerPhone?: string;
+  /**
+   * The payer's name exactly as it appears in their UPI app.
+   * Strongly recommended — used by the matching engine to verify payments
+   * when the transaction note doesn't contain the order ID.
+   * Maps to `metadata.expectedSenderName` on the order.
+   */
+  expectedSenderName?: string;
   expiresInMinutes?: number;
   metadata?: Record<string, unknown>;
 }

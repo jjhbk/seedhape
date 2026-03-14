@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Text, ActivityIndicator, View, StyleSheet, PermissionsAndroid, Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import DeviceInfo from 'react-native-device-info';
 
@@ -9,27 +9,81 @@ import TransactionsScreen from './screens/TransactionsScreen';
 import DisputesScreen from './screens/DisputesScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ApiKeyScreen from './screens/ApiKeyScreen';
-import SeedhaPeMark from './components/SeedhaPeMark';
 import { startNotificationListener } from './services/notification-bridge';
 import { ensureBackgroundSyncRunning, getApiKey, registerDevice } from './services/api';
+import { C } from './theme';
 
 const Tab = createBottomTabNavigator();
 
-type LastNotification = {
+export type LastNotification = {
   amount: number;
   senderName?: string;
   upiApp?: string;
   receivedAt: string;
 };
 
-function TabGlyph({ label, color }: { label: string; color: string }) {
+// ─── Tab Icons ───────────────────────────────────────────────────────────────
+
+function HouseIcon({ color }: { color: string }) {
   return (
-    <View style={[styles.tabGlyph, { borderColor: color }]}>
-      <Text style={[styles.tabGlyphText, { color }]}>{label}</Text>
+    <View style={{ width: 22, height: 20, alignItems: 'center', justifyContent: 'flex-end' }}>
+      <View style={{
+        width: 0, height: 0,
+        borderLeftWidth: 11, borderRightWidth: 11, borderBottomWidth: 9,
+        borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color,
+      }} />
+      <View style={{ width: 15, height: 11, backgroundColor: color, borderRadius: 1, alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>
+        <View style={{ width: 6, height: 7, backgroundColor: C.bg, borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+      </View>
     </View>
   );
 }
 
+function ListIcon({ color }: { color: string }) {
+  return (
+    <View style={{ gap: 4, paddingVertical: 1 }}>
+      <View style={{ height: 2.5, width: 20, backgroundColor: color, borderRadius: 2 }} />
+      <View style={{ height: 2.5, width: 14, backgroundColor: color, borderRadius: 2 }} />
+      <View style={{ height: 2.5, width: 18, backgroundColor: color, borderRadius: 2 }} />
+    </View>
+  );
+}
+
+function ShieldIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 18, height: 21, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{
+        width: 18, height: 19,
+        borderTopLeftRadius: 8, borderTopRightRadius: 8,
+        borderBottomLeftRadius: 5, borderBottomRightRadius: 5,
+        backgroundColor: color, alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Text style={{ color: C.bg, fontSize: 11, fontWeight: '900', lineHeight: 13 }}>!</Text>
+      </View>
+    </View>
+  );
+}
+
+function SlidersIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 22, gap: 4, paddingVertical: 1 }}>
+      {[{ dot: 6 }, { dot: 14 }, { dot: 10 }].map(({ dot }, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', height: 2.5 }}>
+          <View style={{ flex: 1, height: 2.5, backgroundColor: color, borderRadius: 2 }} />
+          <View style={{ position: 'absolute', left: dot - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: C.bg, borderWidth: 2, borderColor: color }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ─── Navigation theme ────────────────────────────────────────────────────────
+const NavTheme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: C.bg },
+};
+
+// ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
@@ -79,9 +133,14 @@ export default function App() {
 
   if (checking) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' }}>
-        <SeedhaPeMark />
-        <ActivityIndicator color="#16a34a" size="large" />
+      <View style={styles.splash}>
+        <View style={styles.splashMark}>
+          <View style={styles.splashLeafLeft} />
+          <View style={styles.splashLeafRight} />
+          <View style={styles.splashStem} />
+        </View>
+        <Text style={styles.splashWord}>seedhape</Text>
+        <ActivityIndicator color={C.green} size="small" style={{ marginTop: 32 }} />
       </View>
     );
   }
@@ -91,53 +150,37 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={NavTheme}>
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarStyle: {
-            position: 'absolute',
-            left: 14,
-            right: 14,
-            bottom: 12,
-            height: 64,
-            borderRadius: 18,
-            borderTopWidth: 1,
-            borderTopColor: '#dcfce7',
-            backgroundColor: '#ffffff',
-            shadowColor: '#052e16',
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: 4 },
-            paddingBottom: 6,
-            paddingTop: 6,
-          },
-          tabBarLabelStyle: { fontWeight: '600', fontSize: 11 },
-          tabBarActiveTintColor: '#16a34a',
-          tabBarInactiveTintColor: '#9ca3af',
+          tabBarStyle: styles.tabBar,
+          tabBarLabelStyle: styles.tabLabel,
+          tabBarActiveTintColor: C.green,
+          tabBarInactiveTintColor: C.textMuted,
         }}
       >
         <Tab.Screen
           name="Home"
-          options={{ title: 'Home', tabBarIcon: ({ color }) => <TabGlyph label="H" color={color} /> }}
+          options={{ title: 'Home', tabBarIcon: ({ color }) => <HouseIcon color={color} /> }}
         >
           {() => <HomeScreen apiKey={apiKey} lastNotification={lastNotification} />}
         </Tab.Screen>
         <Tab.Screen
           name="Transactions"
-          options={{ title: 'Transactions', tabBarIcon: ({ color }) => <TabGlyph label="T" color={color} /> }}
+          options={{ title: 'Payments', tabBarIcon: ({ color }) => <ListIcon color={color} /> }}
         >
           {() => <TransactionsScreen apiKey={apiKey} />}
         </Tab.Screen>
         <Tab.Screen
           name="Disputes"
-          options={{ title: 'Disputes', tabBarIcon: ({ color }) => <TabGlyph label="D" color={color} /> }}
+          options={{ title: 'Disputes', tabBarIcon: ({ color }) => <ShieldIcon color={color} /> }}
         >
           {() => <DisputesScreen apiKey={apiKey} />}
         </Tab.Screen>
         <Tab.Screen
           name="Settings"
-          options={{ title: 'Settings', tabBarIcon: ({ color }) => <TabGlyph label="S" color={color} /> }}
+          options={{ title: 'Settings', tabBarIcon: ({ color }) => <SlidersIcon color={color} /> }}
         >
           {() => <SettingsScreen apiKey={apiKey} onSignOut={() => setApiKey(null)} />}
         </Tab.Screen>
@@ -147,15 +190,82 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  tabGlyph: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.4,
+  splash: {
+    flex: 1,
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
-    backgroundColor: '#fff',
   },
-  tabGlyphText: { fontSize: 10, fontWeight: '800' },
+  splashMark: {
+    width: 64,
+    height: 64,
+    backgroundColor: C.greenSurface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.greenBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splashLeafLeft: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    width: 14,
+    height: 14,
+    borderTopRightRadius: 12,
+    borderBottomLeftRadius: 12,
+    backgroundColor: C.green,
+    transform: [{ rotate: '-30deg' }],
+  },
+  splashLeafRight: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 14,
+    height: 14,
+    borderTopLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    backgroundColor: C.greenBright,
+    transform: [{ rotate: '30deg' }],
+  },
+  splashStem: {
+    position: 'absolute',
+    bottom: 10,
+    width: 3,
+    height: 20,
+    backgroundColor: C.green,
+    borderRadius: 2,
+  },
+  splashWord: {
+    marginTop: 20,
+    fontSize: 26,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.5,
+  },
+  tabBar: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 14,
+    height: 62,
+    borderRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.surface,
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+    paddingBottom: 8,
+    paddingTop: 8,
+  },
+  tabLabel: {
+    fontWeight: '600',
+    fontSize: 10,
+    marginTop: 2,
+  },
 });

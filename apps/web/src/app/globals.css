@@ -51,20 +51,42 @@
   * {
     @apply border-border;
   }
+
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 80px;
   }
+
   body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-image:
-      radial-gradient(circle at 12% -5%, rgba(16, 185, 129, 0.12), transparent 22%),
-      radial-gradient(circle at 85% 0%, rgba(52, 211, 153, 0.1), transparent 26%);
-    background-attachment: fixed;
   }
 
   ::selection {
-    background: rgba(16, 185, 129, 0.28);
+    background: rgba(16, 185, 129, 0.25);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.28);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
   }
 }

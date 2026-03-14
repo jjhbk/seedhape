@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Left leaf -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,62 C54,62 36,56 32,38 C41,43 54,55 54,62Z" />
+
+    <!-- Right leaf -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,52 C54,52 72,46 76,28 C67,33 54,45 54,52Z" />
+
+    <!-- Stem -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,78 L54,44" />
+
+    <!-- Ground line -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M40,80 L68,80" />
+
+    <!-- Payment verified dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,88 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+
+</vector>

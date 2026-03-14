@@ -8,6 +8,7 @@ export function PaymentButton({
   description,
   customerEmail,
   customerPhone,
+  expectedSenderName,
   metadata,
   onSuccess,
   onExpired,
@@ -25,6 +26,7 @@ export function PaymentButton({
       if (description) opts.description = description;
       if (customerEmail) opts.customerEmail = customerEmail;
       if (customerPhone) opts.customerPhone = customerPhone;
+      if (expectedSenderName) opts.expectedSenderName = expectedSenderName;
       if (metadata) opts.metadata = metadata;
       const order = await client.createOrder(opts);
       setOrderId(order.id);

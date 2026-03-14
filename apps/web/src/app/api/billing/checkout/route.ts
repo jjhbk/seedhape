@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 
 const RequestSchema = z.object({
@@ -13,6 +14,11 @@ const PLAN_AMOUNT_PAISE: Record<'STARTER' | 'GROWTH' | 'PRO', number> = {
 
 export async function POST(req: Request) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
+    }
+
     const body = await req.json().catch(() => null);
     const parsed = RequestSchema.safeParse(body);
     if (!parsed.success) {
@@ -51,6 +57,7 @@ export async function POST(req: Request) {
         metadata: {
           source: 'pricing_page',
           planKey,
+          subscriberClerkId: userId,
         },
       }),
       cache: 'no-store',

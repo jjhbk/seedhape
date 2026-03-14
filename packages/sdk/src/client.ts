@@ -22,12 +22,22 @@ export class SeedhaPe {
 
   /**
    * Create a new payment order.
+   *
+   * If `expectedSenderName` is provided it is forwarded as
+   * `metadata.expectedSenderName` so the matching engine can verify the
+   * payment using the payer's name even when the UPI transaction note
+   * doesn't contain the order ID.
    */
   async createOrder(options: CreateOrderOptions): Promise<OrderData> {
+    const { expectedSenderName, metadata, ...rest } = options;
+    const mergedMetadata = expectedSenderName
+      ? { ...metadata, expectedSenderName }
+      : metadata;
+
     const res = await fetch(`${this.baseUrl}/v1/orders`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify(options),
+      body: JSON.stringify(mergedMetadata ? { ...rest, metadata: mergedMetadata } : rest),
     });
 
     if (!res.ok) {

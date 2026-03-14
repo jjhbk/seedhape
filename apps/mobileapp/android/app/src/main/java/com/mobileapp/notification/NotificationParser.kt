@@ -82,17 +82,21 @@ object NotificationParser {
     }
 
     // ─── BHIM ────────────────────────────────────────────────────────────────
+    // Example title: "Payment Received"
+    // Body: "You have received Rs.500 from Rahul Kumar via UPI. UPI Ref: 123456789012"
     private fun parseBhim(title: String, body: String): ParsedPayment? {
-        val amountMatch = Regex("""Rs\.?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
-            .find(title + " " + body) ?: return null
+        val text = "$title $body"
+        val amountMatch = Regex("""(?:₹|Rs\.?)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+            .find(text) ?: return null
         val amount = parseAmount(amountMatch.groupValues[1]) ?: return null
 
-        val utr = Regex("""(?:UPI Ref|Txn ID)[:\s]+(\w{12,20})""", RegexOption.IGNORE_CASE)
+        val utr = Regex("""(?:UPI Ref|Txn ID|Ref No)[:\s]+(\w{12,20})""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
         val note = Regex("""(?:Note|Remarks)[:\s]+(\S+)""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
+        val sender = extractSenderName(title, body)
 
-        return ParsedPayment(amount, utr, note, null)
+        return ParsedPayment(amount, utr, note, sender)
     }
 
     // ─── Amazon Pay ──────────────────────────────────────────────────────────
@@ -147,23 +151,31 @@ object NotificationParser {
     }
 
     private fun extractSenderName(title: String, body: String): String? {
-        val text = "$title | $body"
-        val sources = listOf(title, body, text)
+        // Ordered from most-specific to most-generic to avoid greedy over-capture.
+        // Each pattern captures group 1 = sender name.
         val patterns = listOf(
-            Regex("""(?:^|[\s|•·,])([\p{L}][\p{L}\p{N} ._@&-]{1,80}?)\s+has\s+(?:sent|paid)\b""", RegexOption.IGNORE_CASE),
-            Regex("""(?:received\s+from|from)\s+([\p{L}][\p{L}\p{N} ._@&-]{1,80}?)(?:\s*(?:[|•·,]|via|upi|ref|txn|to\b|$))""", RegexOption.IGNORE_CASE),
-            Regex("""paid\s+by\s+([\p{L}][\p{L}\p{N} ._@&-]{1,80}?)(?:\s*(?:[|•·,]|via|upi|ref|txn|$))""", RegexOption.IGNORE_CASE),
-            Regex("""sender[:\s]+([\p{L}][\p{L}\p{N} ._@&-]{1,80})""", RegexOption.IGNORE_CASE),
+            // "Rahul Kumar has sent/paid ₹500"
+            Regex("""([\p{L}][\p{L}\p{N} ._-]{1,60}?)\s+has\s+(?:sent|paid)\b""", RegexOption.IGNORE_CASE),
+            // "paid by Rahul Kumar" / "Paid By: Rahul Kumar"
+            Regex("""paid\s+by[:\s]+([\p{L}][\p{L}\p{N} ._-]{1,60}?)(?:\s*(?:[|•·,]|via\b|upi\b|ref\b|txn\b|$))""", RegexOption.IGNORE_CASE),
+            // "received ₹500 from Rahul Kumar" / "received from Rahul Kumar"
+            Regex("""received(?:\s+(?:₹|Rs\.?)[\d,]+(?:\.\d{1,2})?)?\s+from\s+([\p{L}][\p{L}\p{N} ._-]{1,60}?)(?:\s*(?:[|•·,]|via\b|upi\b|ref\b|txn\b|$))""", RegexOption.IGNORE_CASE),
+            // "From Rahul Kumar" (Google Pay / generic)
+            Regex("""(?:^|[|•·\s])From\s+([\p{L}][\p{L}\p{N} ._-]{1,60}?)(?:\s*(?:[|•·,]|via\b|upi\b|ref\b|txn\b|$))""", RegexOption.IGNORE_CASE),
+            // "Sender: Rahul Kumar"
+            Regex("""sender[:\s]+([\p{L}][\p{L}\p{N} ._-]{1,60})""", RegexOption.IGNORE_CASE),
         )
 
-        for (source in sources) {
+        // Check body first (more detailed), then title
+        for (source in listOf(body, title)) {
             for (pattern in patterns) {
                 val match = pattern.find(source)
                     ?.groupValues
                     ?.getOrNull(1)
                     ?.trim()
-                    ?.trim('.', ',', '|', '•', '·', '-', ':')
-                if (!match.isNullOrBlank()) return match
+                    ?.trimEnd('.', ',', '|', '•', '·', '-', ':')
+                    ?.trim()
+                if (!match.isNullOrBlank() && match.length >= 2) return match
             }
         }
         return null

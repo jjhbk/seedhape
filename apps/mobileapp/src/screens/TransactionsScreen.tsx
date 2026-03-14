@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Modal, ScrollView,
+  RefreshControl, ActivityIndicator, Modal, ScrollView, Pressable,
 } from 'react-native';
 
 import { getTransactions } from '../services/api';
 import { paiseToRupees } from '../shared';
+import { C, STATUS_SCHEME } from '../theme';
 
 type Transaction = {
   id: string;
@@ -20,17 +21,26 @@ type Transaction = {
   senderName: string | null;
 };
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  VERIFIED:  { bg: '#dcfce7', text: '#166534' },
-  PENDING:   { bg: '#fef9c3', text: '#854d0e' },
-  CREATED:   { bg: '#f3f4f6', text: '#374151' },
-  DISPUTED:  { bg: '#fff7ed', text: '#9a3412' },
-  EXPIRED:   { bg: '#f3f4f6', text: '#6b7280' },
-  REJECTED:  { bg: '#fef2f2', text: '#991b1b' },
-  RESOLVED:  { bg: '#eff6ff', text: '#1d4ed8' },
+type Props = { apiKey: string };
+
+const UPI_APP_SHORT: Record<string, string> = {
+  PhonePe: 'PP',
+  'Google Pay': 'GP',
+  Paytm: 'PT',
+  BHIM: 'BH',
+  'Amazon Pay': 'AP',
+  CRED: 'CR',
+  'WhatsApp Pay': 'WA',
 };
 
-type Props = { apiKey: string };
+function AppBadge({ app }: { app: string | null }) {
+  const label = app ? (UPI_APP_SHORT[app] ?? app.slice(0, 2).toUpperCase()) : '—';
+  return (
+    <View style={styles.appBadge}>
+      <Text style={styles.appBadgeText}>{label}</Text>
+    </View>
+  );
+}
 
 export default function TransactionsScreen({ apiKey }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -45,8 +55,8 @@ export default function TransactionsScreen({ apiKey }: Props) {
   async function loadPage(p: number, reset = false) {
     if (loading) return;
     setLoading(true);
-    const data = await getTransactions(apiKey, p);
-    const rows: Transaction[] = data?.data ?? [];
+    const data = await getTransactions(apiKey, p) as { data: Transaction[] } | null;
+    const rows = data?.data ?? [];
     setTransactions(prev => reset ? rows : [...prev, ...rows]);
     setHasMore(rows.length === 20);
     setPage(p);
@@ -64,16 +74,19 @@ export default function TransactionsScreen({ apiKey }: Props) {
   }, [hasMore, loading, page]);
 
   const renderItem = ({ item }: { item: Transaction }) => {
-    const colors = STATUS_COLORS[item.status] ?? { bg: '#f3f4f6', text: '#374151' };
+    const scheme = STATUS_SCHEME[item.status] ?? STATUS_SCHEME.EXPIRED;
     return (
       <TouchableOpacity style={styles.row} onPress={() => setSelected(item)} activeOpacity={0.7}>
-        <View>
+        <AppBadge app={item.upiApp} />
+        <View style={styles.rowMiddle}>
           <Text style={styles.amount}>₹{paiseToRupees(item.amount)}</Text>
-          <Text style={styles.app}>{item.upiApp ?? item.utr ?? '—'}</Text>
+          <Text style={styles.meta} numberOfLines={1}>
+            {item.senderName ?? item.utr ?? item.upiApp ?? '—'}
+          </Text>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <View style={[styles.badge, { backgroundColor: colors.bg }]}>
-            <Text style={[styles.badgeText, { color: colors.text }]}>{item.status}</Text>
+        <View style={{ alignItems: 'flex-end', gap: 5 }}>
+          <View style={[styles.badge, { backgroundColor: scheme.surface, borderColor: scheme.border }]}>
+            <Text style={[styles.badgeText, { color: scheme.text }]}>{item.status}</Text>
           </View>
           <Text style={styles.date}>
             {new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
@@ -85,35 +98,43 @@ export default function TransactionsScreen({ apiKey }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Transactions</Text>
+      <Text style={styles.title}>Payments</Text>
       <FlatList
         data={transactions}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.textMuted} />}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
-        ListEmptyComponent={!loading ? <Text style={styles.empty}>No transactions yet</Text> : null}
-        ListFooterComponent={loading ? <ActivityIndicator style={{ padding: 16 }} color="#16a34a" /> : null}
+        ListEmptyComponent={!loading ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyText}>No payments yet</Text>
+          </View>
+        ) : null}
+        ListFooterComponent={loading ? (
+          <ActivityIndicator style={{ padding: 20 }} color={C.textMuted} />
+        ) : null}
       />
 
+      {/* Detail sheet */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Transaction Detail</Text>
+        <Pressable style={styles.overlay} onPress={() => setSelected(null)}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Transaction</Text>
             {selected && (
-              <ScrollView>
-                <DetailRow label="Amount" value={`₹${paiseToRupees(selected.amount)}`} />
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <DetailRow label="Amount" value={`₹${paiseToRupees(selected.amount)}`} highlight />
                 {selected.originalAmount !== selected.amount && (
                   <DetailRow label="Original" value={`₹${paiseToRupees(selected.originalAmount)}`} />
                 )}
                 <DetailRow label="Status" value={selected.status} />
-                <DetailRow label="Order ID" value={selected.id} mono />
-                {selected.utr && <DetailRow label="UTR" value={selected.utr} mono />}
-                {selected.upiApp && <DetailRow label="UPI App" value={selected.upiApp} />}
                 {selected.senderName && <DetailRow label="Sender" value={selected.senderName} />}
-                {selected.description && <DetailRow label="Description" value={selected.description} />}
+                {selected.upiApp && <DetailRow label="App" value={selected.upiApp} />}
+                {selected.utr && <DetailRow label="UTR" value={selected.utr} mono />}
+                {selected.description && <DetailRow label="Note" value={selected.description} />}
+                <DetailRow label="Order ID" value={selected.id} mono />
                 <DetailRow label="Created" value={new Date(selected.createdAt).toLocaleString('en-IN')} />
                 {selected.verifiedAt && (
                   <DetailRow label="Verified" value={new Date(selected.verifiedAt).toLocaleString('en-IN')} />
@@ -121,42 +142,81 @@ export default function TransactionsScreen({ apiKey }: Props) {
               </ScrollView>
             )}
             <TouchableOpacity style={styles.closeBtn} onPress={() => setSelected(null)}>
-              <Text style={styles.closeBtnText}>Close</Text>
+              <Text style={styles.closeBtnText}>Done</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
 }
 
-function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+function DetailRow({ label, value, mono = false, highlight = false }: {
+  label: string; value: string; mono?: boolean; highlight?: boolean;
+}) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={[styles.detailValue, mono && styles.mono]}>{value}</Text>
+      <Text style={[
+        styles.detailValue,
+        mono && styles.mono,
+        highlight && { fontSize: 22, fontWeight: '800', color: C.greenBright },
+      ]} numberOfLines={mono ? 2 : 3}>
+        {value}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9fafb' },
-  title: { fontSize: 22, fontWeight: '700', color: '#111', paddingHorizontal: 20, paddingTop: 48, paddingBottom: 16 },
+  container: { flex: 1, backgroundColor: C.bg },
+  title: { fontSize: 26, fontWeight: '800', color: C.text, paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16 },
   list: { paddingHorizontal: 16, paddingBottom: 24 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#f3f4f6' },
-  amount: { fontSize: 17, fontWeight: '700', color: '#111' },
-  app: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 4 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  date: { fontSize: 11, color: '#d1d5db' },
-  empty: { textAlign: 'center', color: '#9ca3af', padding: 32 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '80%' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#111', marginBottom: 16 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
-  detailLabel: { fontSize: 13, color: '#6b7280', flex: 1 },
-  detailValue: { fontSize: 13, color: '#111', fontWeight: '500', flex: 2, textAlign: 'right' },
-  mono: { fontFamily: 'monospace', fontSize: 11 },
-  closeBtn: { backgroundColor: '#f3f4f6', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
-  closeBtnText: { fontWeight: '600', color: '#374151' },
+
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 6,
+    borderWidth: 1, borderColor: C.borderDim,
+  },
+  appBadge: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: C.surfaceHigh, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: C.border,
+  },
+  appBadgeText: { fontSize: 11, fontWeight: '800', color: C.textSub },
+  rowMiddle: { flex: 1 },
+  amount: { fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 3 },
+  meta: { fontSize: 12, color: C.textMuted },
+  badge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
+  badgeText: { fontSize: 10, fontWeight: '700' },
+  date: { fontSize: 11, color: C.textMuted },
+
+  emptyWrap: { paddingTop: 60, alignItems: 'center' },
+  emptyText: { fontSize: 14, color: C.textMuted },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 20, paddingBottom: 36, maxHeight: '82%',
+    borderTopWidth: 1, borderColor: C.border,
+  },
+  sheetHandle: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: C.border,
+    alignSelf: 'center', marginBottom: 20,
+  },
+  sheetTitle: { fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 16 },
+
+  detailRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.borderDim,
+  },
+  detailLabel: { fontSize: 13, color: C.textMuted, flex: 1 },
+  detailValue: { fontSize: 14, color: C.text, fontWeight: '500', flex: 2, textAlign: 'right' },
+  mono: { fontFamily: 'monospace', fontSize: 11, color: C.textSub },
+
+  closeBtn: {
+    backgroundColor: C.surfaceHigh, borderRadius: 14, padding: 15,
+    alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: C.border,
+  },
+  closeBtnText: { fontWeight: '700', color: C.text, fontSize: 15 },
 });

@@ -75,7 +75,7 @@ export async function matchNotification(
   const windowStart = new Date(Date.now() - 15 * 60 * 1000);
 
   const candidates = await db
-    .select({ id: orders.id, metadata: orders.metadata })
+    .select({ id: orders.id, metadata: orders.metadata, createdAt: orders.createdAt })
     .from(orders)
     .where(
       and(
@@ -109,6 +109,15 @@ export async function matchNotification(
   if (candidates.length === 1 && candidates[0]) {
     const orderId = candidates[0].id;
     return verifyAndSettle(orderId, merchantId, amount, notification, 'amount_window');
+  }
+
+  // Strategy 2b: if only one candidate is very recent, prefer it.
+  // This helps avoid false disputes in low-amount test plans (₹1/₹2/₹3) where older pending
+  // orders may share the same amount.
+  const recentCutoff = new Date(Date.now() - 90 * 1000);
+  const recentCandidates = candidates.filter((c) => c.createdAt >= recentCutoff);
+  if (recentCandidates.length === 1 && recentCandidates[0]) {
+    return verifyAndSettle(recentCandidates[0].id, merchantId, amount, notification, 'amount_window');
   }
 
   // Multiple candidates — mark all as DISPUTED
