@@ -13,6 +13,7 @@ build/
 .env
 .env.local
 .env.*.local
+apps/mobileapp/.env
 
 # OS
 .DS_Store
@@ -48,3 +49,5 @@ apps/mobile/ios/build/
 *.tsbuildinfo
 .cache/
 
+# Generated mobile config
+apps/mobileapp/src/config.generated.ts

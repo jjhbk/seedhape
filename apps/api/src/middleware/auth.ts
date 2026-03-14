@@ -104,17 +104,9 @@ export async function requireApiKey(
   if (configuredDomain) {
     const requestDomain = getRequestDomain(req);
 
-    if (!requestDomain) {
-      return next(
-        new AppError(
-          403,
-          `Missing request domain. Provide Origin/Referer or X-SeedhaPe-Domain for ${configuredDomain}`,
-          'DOMAIN_REQUIRED',
-        ),
-      );
-    }
-
-    if (requestDomain !== configuredDomain) {
+    // For native/server-to-server callers, Origin/Referer may be absent.
+    // Enforce only when a domain hint is present and mismatched.
+    if (requestDomain && requestDomain !== configuredDomain) {
       return next(
         new AppError(
           403,
