@@ -31,6 +31,7 @@ export interface OrderData {
   qrCode: string;
   expiresAt: string;
   createdAt: string;
+  expectedSenderName: string | null;
 }
 
 export type OrderStatus =

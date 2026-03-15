@@ -257,6 +257,119 @@ app.post('/webhooks/seedhape', (req, res) => {
   res.sendStatus(200); // respond quickly, process async
 });`,
 
+  disputeFlow: `// When order.status === 'EXPIRED' or 'DISPUTED', the modal automatically
+// shows a screenshot upload UI — no extra code needed on your end.
+//
+// The customer:
+//  1. Sees "Link Expired" or "Under Review" in the modal
+//  2. Uploads a screenshot of their UPI payment confirmation
+//  3. Clicks "Submit Dispute"
+//
+// You receive an order.disputed webhook:
+{
+  "event": "order.disputed",
+  "data": { "orderId": "sp_ord_ab12cd34ef56", "status": "DISPUTED" }
+}
+//
+// After you review and resolve in the Android app or dashboard:
+// → Approve  → order.resolved fires, status = "RESOLVED"
+// → Reject   → order.resolved fires, status = "REJECTED"`,
+
+  disputeWebhookHandler: `case 'order.disputed':
+  // Customer uploaded a screenshot — order needs manual review
+  // Notify yourself (email, Slack, etc.) to check the Disputes tab
+  await notifyTeam('Payment under review', payload.data.orderId);
+  // Do NOT fulfill the order yet — wait for order.resolved
+  break;
+
+case 'order.resolved':
+  if (payload.data.status === 'RESOLVED') {
+    // You approved the dispute — fulfill the order
+    await fulfillOrder(payload.data.orderId);
+  } else {
+    // You rejected it — inform the customer
+    await markOrderRejected(payload.data.orderId);
+  }
+  break;`,
+
+  curlSetExpectation: `# POST /v1/pay/:orderId/expectation
+# Public endpoint — no API key required
+# Call this after creating the order, before the customer pays
+
+curl -X POST "https://api.seedhape.com/v1/pay/sp_ord_ab12cd34ef56/expectation" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "expectedSenderName": "Rahul Sharma" }'
+
+# Response
+{ "ok": true }`,
+
+  fetchSetExpectation: `// If building a custom payment UI without the SDK/React package,
+// call this endpoint after showing the name input to your customer.
+
+const res = await fetch(\`https://api.seedhape.com/v1/pay/\${orderId}/expectation\`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ expectedSenderName: customerName }),
+});
+
+if (!res.ok) throw new Error('Failed to set sender name');`,
+
+  curlUploadScreenshot: `# POST /v1/pay/:orderId/screenshot
+# Public endpoint — no API key required
+# Accepted when order status is PENDING, DISPUTED, or EXPIRED
+
+curl -X POST "https://api.seedhape.com/v1/pay/sp_ord_ab12cd34ef56/screenshot" \\
+  -F "screenshot=@/path/to/payment-screenshot.jpg"
+
+# Response
+{
+  "ok": true,
+  "message": "Screenshot submitted for review",
+  "screenshotUrl": "https://public.blob.vercel-storage.com/screenshots/sp_ord_ab12cd34ef56-..."
+}`,
+
+  fetchUploadScreenshot: `// Custom dispute UI — handle file input and upload directly
+async function submitDispute(orderId: string, file: File) {
+  const form = new FormData();
+  form.append('screenshot', file);          // field name must be "screenshot"
+
+  const res = await fetch(\`https://api.seedhape.com/v1/pay/\${orderId}/screenshot\`, {
+    method: 'POST',
+    body: form,
+    // Do NOT set Content-Type manually — browser sets multipart boundary automatically
+  });
+
+  if (!res.ok) throw new Error('Upload failed');
+  const { screenshotUrl } = await res.json();
+  return screenshotUrl; // public URL of the uploaded image
+}`,
+
+  nameGateExplainer: `// The matching engine uses expectedSenderName in TWO ways:
+//
+// 1. COLLISION RESOLVER — if multiple orders have the same amount in the 15-min
+//    window, only the one whose expectedSenderName matches the notification
+//    sender gets VERIFIED. Without a name, all colliding orders → DISPUTED.
+//
+// 2. FRAUD GUARD — even when matched via order ID in the transaction note,
+//    if expectedSenderName is set and the actual sender doesn't match →
+//    order is flagged as DISPUTED. Prevents someone else paying the same
+//    amount to steal a verified order.
+//
+// Option A — merchant supplies name at order creation (recommended)
+// The modal skips the name gate entirely.
+const order = await seedhape.createOrder({
+  amount: 49900,
+  expectedSenderName: 'Rahul Sharma', // from your logged-in user profile
+});
+
+// Option B — customer enters name in the modal (no name known at creation)
+// Don't pass expectedSenderName — the modal shows a name input step first,
+// then calls POST /v1/pay/:orderId/expectation before showing the QR code.
+const order = await seedhape.createOrder({
+  amount: 49900,
+  // no expectedSenderName → modal collects it from the customer
+});`,
+
   webhookPayload: `// order.verified — payment confirmed
 {
   "event": "order.verified",
@@ -419,9 +532,13 @@ const tocItems = [
   { href: '#webhooks', label: '7. Webhooks', sub: false },
   { href: '#webhook-events', label: 'Events reference', sub: true },
   { href: '#webhook-verify', label: 'Signature verification', sub: true },
-  { href: '#payment-matching', label: '8. Payment Matching', sub: false },
-  { href: '#go-live', label: '9. Go-Live Checklist', sub: false },
-  { href: '#troubleshooting', label: '10. Troubleshooting', sub: false },
+  { href: '#disputes', label: '8. Disputes & Name Input', sub: false },
+  { href: '#disputes-name', label: 'Name gate', sub: true },
+  { href: '#disputes-flow', label: 'Dispute flow', sub: true },
+  { href: '#disputes-webhooks', label: 'Webhook handling', sub: true },
+  { href: '#payment-matching', label: '9. Payment Matching', sub: false },
+  { href: '#go-live', label: '10. Go-Live Checklist', sub: false },
+  { href: '#troubleshooting', label: '11. Troubleshooting', sub: false },
   { href: '/docs/api', label: '→ Full API Reference', sub: false },
 ];
 
@@ -877,8 +994,108 @@ export default function MerchantDocsPage() {
 
           <Divider />
 
+          {/* ── DISPUTES & NAME INPUT ─────────────────────────────────────── */}
+          <SectionAnchor
+            id="disputes"
+            n="Section 8"
+            title="Disputes & Name Input"
+            subtitle="What happens when a payment can't be automatically matched — and how customers can raise disputes directly from the payment modal."
+          />
+
+          <H3 id="disputes-name">Name gate — the core of payment matching</H3>
+          <P>
+            <code>expectedSenderName</code> is not just a helpful hint — it is actively used by the
+            matching engine in two ways:
+          </P>
+          <UL items={[
+            <><strong>Collision resolver:</strong> if two orders share the same amount in the 15-minute
+            window, the engine picks the one whose <code>expectedSenderName</code> matches the
+            sender from the UPI notification. Without a name, both orders are flagged as <Badge variant="amber">DISPUTED</Badge>.</>,
+            <><strong>Fraud guard:</strong> even when an order is matched via its ID in the UPI
+            transaction note, the engine still checks the sender name. If it doesn&apos;t match,
+            the order is flagged as <Badge variant="amber">DISPUTED</Badge> — preventing someone
+            else from paying the same amount to steal a verified order.</>,
+          ]} />
+          <P>
+            There are two ways to provide the sender name:
+          </P>
+          <CodeBlock title="name-gate-options.ts" code={snippets.nameGateExplainer} />
+          <Callout type="tip">
+            If you have the customer&apos;s name in your session (e.g. from Clerk or your own auth),
+            always pass <code>expectedSenderName</code> at order creation — the modal skips the name
+            step entirely and goes straight to the QR code.
+          </Callout>
+          <P>
+            When <code>expectedSenderName</code> is not provided at creation, both the React{' '}
+            <code>PaymentModal</code> and the vanilla JS SDK modal automatically show a name input
+            step before the QR code. The customer enters their name exactly as shown in their UPI
+            app, and the modal calls the expectation endpoint before proceeding. If you are building
+            a <strong>custom UI</strong>, call it directly:
+          </P>
+          <CodeBlock title="curl — set sender name" code={snippets.curlSetExpectation} />
+          <CodeBlock title="fetch — custom UI" code={snippets.fetchSetExpectation} />
+          <div className="border border-gray-100 rounded-xl p-4 my-5 bg-gray-50 text-sm">
+            <p className="font-semibold text-gray-700 mb-2">Endpoint reference</p>
+            <div className="flex flex-wrap gap-2 items-center mb-1">
+              <Badge variant="brand">POST</Badge>
+              <code className="text-[13px] text-slate-700">/v1/pay/:orderId/expectation</code>
+              <Badge variant="gray">public</Badge>
+            </div>
+            <p className="text-gray-500 text-[13px]">Body: <code>{`{ "expectedSenderName": "string" }`}</code></p>
+            <p className="text-gray-500 text-[13px] mt-1">Accepts when status is <code>CREATED</code>, <code>PENDING</code>, or <code>DISPUTED</code>.</p>
+          </div>
+
+          <H3 id="disputes-flow">Dispute flow</H3>
+          <P>
+            A dispute occurs when a payment is made but SeedhaPe cannot automatically match it —
+            either because the order expired before the notification arrived, or because the
+            notification didn&apos;t contain enough information to match.
+          </P>
+          <UL items={[
+            <>Order expires (window passes) → status becomes <Badge variant="amber">EXPIRED</Badge></>,
+            <>Notification arrives but can&apos;t be matched → status becomes <Badge variant="amber">DISPUTED</Badge></>,
+            <>Customer sees &quot;Link Expired&quot; or &quot;Under Review&quot; in the modal</>,
+            <>Customer uploads a screenshot of their UPI payment confirmation</>,
+            <>Order status → <Badge variant="amber">DISPUTED</Badge>, <code>order.disputed</code> webhook fires</>,
+            <>You review the screenshot in the Disputes tab (dashboard or Android app)</>,
+            <>Approve → status → <Badge>RESOLVED</Badge>, <code>order.resolved</code> fires</>,
+            <>Reject → status → <Badge variant="gray">REJECTED</Badge>, <code>order.resolved</code> fires</>,
+          ]} />
+          <Callout type="important">
+            Screenshot upload is built into both the React <code>PaymentModal</code> and the vanilla
+            JS SDK modal — no extra code needed on your end. The dispute is raised by the customer
+            directly from the payment modal. If you are building a custom UI, call the screenshot
+            endpoint directly:
+          </Callout>
+          <CodeBlock title="curl — upload dispute screenshot" code={snippets.curlUploadScreenshot} />
+          <CodeBlock title="fetch — custom dispute UI" code={snippets.fetchUploadScreenshot} />
+          <div className="border border-gray-100 rounded-xl p-4 my-5 bg-gray-50 text-sm">
+            <p className="font-semibold text-gray-700 mb-2">Endpoint reference</p>
+            <div className="flex flex-wrap gap-2 items-center mb-1">
+              <Badge variant="brand">POST</Badge>
+              <code className="text-[13px] text-slate-700">/v1/pay/:orderId/screenshot</code>
+              <Badge variant="gray">public</Badge>
+            </div>
+            <p className="text-gray-500 text-[13px]">Body: <code>multipart/form-data</code> — field name <code>screenshot</code>, image file.</p>
+            <p className="text-gray-500 text-[13px] mt-1">Accepts when status is <code>PENDING</code>, <code>DISPUTED</code>, or <code>EXPIRED</code>.</p>
+            <p className="text-gray-500 text-[13px] mt-1">Returns: <code>{`{ ok, message, screenshotUrl }`}</code></p>
+          </div>
+          <CodeBlock title="dispute-flow-overview.ts" code={snippets.disputeFlow} />
+
+          <H3 id="disputes-webhooks">Handling dispute webhooks</H3>
+          <P>
+            Add these cases to your existing webhook handler:
+          </P>
+          <CodeBlock title="webhook-handler.ts" code={snippets.disputeWebhookHandler} />
+          <Callout type="warning">
+            Never fulfill an order on <code>order.disputed</code> — wait for <code>order.resolved</code>{' '}
+            with <code>status: &quot;RESOLVED&quot;</code> before delivering goods or unlocking features.
+          </Callout>
+
+          <Divider />
+
           {/* ── PAYMENT MATCHING ──────────────────────────────────────────── */}
-          <SectionAnchor id="payment-matching" n="Section 8" title="How Payment Matching Works"
+          <SectionAnchor id="payment-matching" n="Section 9" title="How Payment Matching Works"
             subtitle="Understanding the matching engine helps you maximise auto-verification rates and minimise disputes." />
 
           <H3>Primary matching — transaction note</H3>
@@ -918,7 +1135,7 @@ export default function MerchantDocsPage() {
           <Divider />
 
           {/* ── GO-LIVE ───────────────────────────────────────────────────── */}
-          <SectionAnchor id="go-live" n="Section 9" title="Production Go-Live Checklist"
+          <SectionAnchor id="go-live" n="Section 10" title="Production Go-Live Checklist"
             subtitle="Before you launch to real customers, verify each item below." />
 
           <div className="space-y-2.5 mb-6">
@@ -948,7 +1165,7 @@ export default function MerchantDocsPage() {
           <Divider />
 
           {/* ── TROUBLESHOOTING ───────────────────────────────────────────── */}
-          <SectionAnchor id="troubleshooting" n="Section 10" title="Troubleshooting"
+          <SectionAnchor id="troubleshooting" n="Section 11" title="Troubleshooting"
             subtitle="Common issues and how to resolve them." />
 
           <div className="space-y-4">
