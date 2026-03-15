@@ -66,10 +66,11 @@ const checkoutUrl = \`https://yourdomain.com/pay/\${order.id}\`;
 return redirect(checkoutUrl);`,
 
   sdkBrowserModal: `// Option B — browser SDK modal (single-page apps)
-// Import in a client component / browser context only
+// order.id was created on your server (see Step 2 above) and passed to the client.
+// showPayment only calls public /v1/pay/* endpoints — no API key is ever sent.
 import { SeedhaPe } from '@seedhape/sdk';
 
-const sp = new SeedhaPe({ apiKey: '...' }); // use a public-safe read-only key
+const sp = new SeedhaPe({}); // no apiKey needed for showPayment
 
 const result = await sp.showPayment({
   orderId: order.id,
@@ -92,13 +93,18 @@ const status = await seedhape.getOrderStatus('sp_ord_ab12cd34ef56');
 
   reactProviderSetup: `// app/layout.tsx  or  _app.tsx
 import { SeedhaPeProvider } from '@seedhape/react';
+import { SeedhaPe } from '@seedhape/sdk';
+
+// This runs on the SERVER — your secret key never reaches the browser.
+async function createOrder(opts) {
+  'use server';
+  const client = new SeedhaPe({ apiKey: process.env.SEEDHAPE_SECRET_KEY! });
+  return client.createOrder(opts);
+}
 
 export default function Layout({ children }) {
   return (
-    <SeedhaPeProvider
-      apiKey={process.env.NEXT_PUBLIC_SEEDHAPE_KEY!}
-      // baseUrl="https://api.seedhape.com"  // optional
-    >
+    <SeedhaPeProvider onCreateOrder={createOrder}>
       {children}
     </SeedhaPeProvider>
   );
@@ -864,18 +870,17 @@ export default function MerchantDocsPage() {
 
           <H3 id="react-provider">SeedhaPeProvider</H3>
           <P>
-            Wrap your app (or just the checkout subtree) with the provider. It creates a shared SDK
-            client instance available to all child components via context.
+            Wrap your app (or just the checkout subtree) with the provider. Pass an{' '}
+            <code>onCreateOrder</code> callback that calls your server — your secret API key
+            stays on the server and is never bundled into client-side JavaScript.
           </P>
           <CodeBlock title="app/layout.tsx" code={snippets.reactProviderSetup} />
 
           <div className="border border-gray-100 rounded-xl overflow-hidden mb-6 divide-y divide-gray-100">
-            <Prop name="apiKey" type="string" required>
-              Your SeedhaPe API key. For client-side use, create a separate restricted key or proxy
-              order creation through a server API route.
-            </Prop>
-            <Prop name="baseUrl" type="string">
-              Override the API base URL. Defaults to <code>https://api.seedhape.com</code>.
+            <Prop name="onCreateOrder" type="(opts: CreateOrderOptions) => Promise<OrderData>" required>
+              Called when a payment is initiated. Implement this as a Next.js server action or a
+              fetch to your own backend endpoint. Your SeedhaPe API key must only live here —
+              never in client-side code.
             </Prop>
           </div>
 

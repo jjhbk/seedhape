@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import type { OrderData, PaymentResult } from '@seedhape/sdk';
+import type { CreateOrderOptions, OrderData, PaymentResult } from '@seedhape/sdk';
 
-import { useSeedhaPe } from './provider.js';
+import { useSeedhaPeContext } from './provider.js';
 
 type PaymentState =
   | { phase: 'idle' }
@@ -12,20 +12,14 @@ type PaymentState =
   | { phase: 'error'; error: string };
 
 export function usePayment() {
-  const client = useSeedhaPe();
+  const { onCreateOrder } = useSeedhaPeContext();
   const [state, setState] = useState<PaymentState>({ phase: 'idle' });
 
   const createPayment = useCallback(
-    async (options: {
-      amount: number;
-      description?: string;
-      customerEmail?: string;
-      customerPhone?: string;
-      metadata?: Record<string, unknown>;
-    }) => {
+    async (options: CreateOrderOptions) => {
       setState({ phase: 'creating' });
       try {
-        const order = await client.createOrder(options);
+        const order = await onCreateOrder(options);
         setState({ phase: 'pending', order });
         return order;
       } catch (err) {
@@ -33,7 +27,7 @@ export function usePayment() {
         throw err;
       }
     },
-    [client],
+    [onCreateOrder],
   );
 
   const onSuccess = useCallback((result: PaymentResult) => {

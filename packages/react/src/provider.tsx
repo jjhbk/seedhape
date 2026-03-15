@@ -1,36 +1,40 @@
-import React, { createContext, useContext, useMemo } from 'react';
-import { SeedhaPe } from '@seedhape/sdk';
+import React, { createContext, useContext } from 'react';
+import type { CreateOrderOptions, OrderData } from '@seedhape/sdk';
 
 interface SeedhaPeContextValue {
-  client: SeedhaPe;
+  onCreateOrder: (opts: CreateOrderOptions) => Promise<OrderData>;
 }
 
 const SeedhaPeContext = createContext<SeedhaPeContextValue | null>(null);
 
 export function SeedhaPeProvider({
-  apiKey,
-  baseUrl,
+  onCreateOrder,
   children,
 }: {
-  apiKey: string;
-  baseUrl?: string;
+  /**
+   * Called when a payment button is clicked.
+   * Implement this on your server — call the SeedhaPe API with your secret API key
+   * and return the resulting OrderData. Never put your API key in client-side code.
+   *
+   * @example Next.js server action
+   * async function createOrder(opts) {
+   *   'use server';
+   *   const client = new SeedhaPe({ apiKey: process.env.SEEDHAPE_API_KEY! });
+   *   return client.createOrder(opts);
+   * }
+   */
+  onCreateOrder: (opts: CreateOrderOptions) => Promise<OrderData>;
   children: React.ReactNode;
 }) {
-  const client = useMemo(() => {
-    const config: import('@seedhape/sdk').SeedhaPeConfig = { apiKey };
-    if (baseUrl) config.baseUrl = baseUrl;
-    return new SeedhaPe(config);
-  }, [apiKey, baseUrl]);
-
   return (
-    <SeedhaPeContext.Provider value={{ client }}>
+    <SeedhaPeContext.Provider value={{ onCreateOrder }}>
       {children}
     </SeedhaPeContext.Provider>
   );
 }
 
-export function useSeedhaPe(): SeedhaPe {
+export function useSeedhaPeContext(): SeedhaPeContextValue {
   const ctx = useContext(SeedhaPeContext);
   if (!ctx) throw new Error('useSeedhaPe must be used inside <SeedhaPeProvider>');
-  return ctx.client;
+  return ctx;
 }

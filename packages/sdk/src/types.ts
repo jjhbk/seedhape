@@ -1,5 +1,9 @@
 export interface SeedhaPeConfig {
-  apiKey: string;
+  /**
+   * Your SeedhaPe API key. Required for server-side methods (createOrder, getOrderStatus).
+   * Not needed — and should NOT be included — when only using showPayment in the browser.
+   */
+  apiKey?: string;
   baseUrl?: string;
 }
 

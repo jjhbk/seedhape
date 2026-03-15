@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { PaymentButtonProps } from './types.js';
 import { PaymentModal } from './PaymentModal.js';
-import { useSeedhaPe } from './provider.js';
+import { useSeedhaPeContext } from './provider.js';
 
 export function PaymentButton({
   amount,
@@ -15,7 +15,7 @@ export function PaymentButton({
   className = '',
   children = 'Pay Now',
 }: PaymentButtonProps) {
-  const client = useSeedhaPe();
+  const { onCreateOrder } = useSeedhaPeContext();
   const [orderId, setOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +28,7 @@ export function PaymentButton({
       if (customerPhone) opts.customerPhone = customerPhone;
       if (expectedSenderName) opts.expectedSenderName = expectedSenderName;
       if (metadata) opts.metadata = metadata;
-      const order = await client.createOrder(opts);
+      const order = await onCreateOrder(opts);
       setOrderId(order.id);
     } catch (err) {
       console.error('[SeedhaPe] Failed to create order:', err);

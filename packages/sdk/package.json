@@ -1,6 +1,6 @@
 {
   "name": "@seedhape/sdk",
-  "version": "0.2.1",
+  "version": "0.2.5",
   "description": "SeedhaPe JavaScript SDK — drop-in UPI payment integration",
   "exports": {
     ".": {
@@ -19,15 +19,9 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@seedhape/shared": "workspace:*"
-  },
   "devDependencies": {
     "@seedhape/typescript-config": "workspace:*",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
-  },
-  "peerDependencies": {
-    "zod": "^3.0.0"
   }
 }

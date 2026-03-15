@@ -1,6 +1,6 @@
 {
   "name": "@seedhape/react",
-  "version": "0.2.1",
+  "version": "0.2.5",
   "description": "SeedhaPe React components — PaymentButton, PaymentModal, usePayment hook",
   "exports": {
     ".": {
@@ -20,8 +20,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@seedhape/sdk": "workspace:*",
-    "@seedhape/shared": "workspace:*"
+    "@seedhape/sdk": "workspace:*"
   },
   "devDependencies": {
     "@seedhape/typescript-config": "workspace:*",

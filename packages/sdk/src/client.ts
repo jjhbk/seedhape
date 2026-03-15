@@ -15,8 +15,7 @@ export class SeedhaPe {
   private readonly baseUrl: string;
 
   constructor(config: SeedhaPeConfig) {
-    if (!config.apiKey) throw new Error('SeedhaPe: apiKey is required');
-    this.apiKey = config.apiKey;
+    this.apiKey = config.apiKey ?? '';
     this.baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
   }
 
@@ -29,6 +28,7 @@ export class SeedhaPe {
    * doesn't contain the order ID.
    */
   async createOrder(options: CreateOrderOptions): Promise<OrderData> {
+    if (!this.apiKey) throw new Error('SeedhaPe: apiKey is required to create orders');
     const { expectedSenderName, metadata, ...rest } = options;
     const mergedMetadata = expectedSenderName
       ? { ...metadata, expectedSenderName }
@@ -52,6 +52,7 @@ export class SeedhaPe {
    * Get order status.
    */
   async getOrderStatus(orderId: string): Promise<PaymentResult> {
+    if (!this.apiKey) throw new Error('SeedhaPe: apiKey is required to get order status');
     const res = await fetch(`${this.baseUrl}/v1/orders/${orderId}/status`, {
       headers: this.headers(),
     });

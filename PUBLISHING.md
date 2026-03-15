@@ -190,3 +190,11 @@ defaultConfig {
 ```
 
 Every Play Store upload requires a higher `versionCode` than the previous release.
+
+
+cd /home/jjhbk/seedhape
+pnpm --filter @seedhape/sdk build
+pnpm --filter @seedhape/sdk publish --access public --no-git-checks
+
+pnpm --filter @seedhape/react build
+pnpm --filter @seedhape/react publish --access public --no-git-checks
