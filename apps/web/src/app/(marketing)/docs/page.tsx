@@ -422,6 +422,7 @@ const tocItems = [
   { href: '#payment-matching', label: '8. Payment Matching', sub: false },
   { href: '#go-live', label: '9. Go-Live Checklist', sub: false },
   { href: '#troubleshooting', label: '10. Troubleshooting', sub: false },
+  { href: '/docs/api', label: '→ Full API Reference', sub: false },
 ];
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -992,8 +993,20 @@ export default function MerchantDocsPage() {
             ))}
           </div>
 
+          {/* Related pages */}
+          <div className="mt-12">
+            <Link
+              href="/docs/api"
+              className="group rounded-2xl border border-gray-200 hover:border-brand-200 bg-white hover:bg-brand-50/30 p-5 transition-all block"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-brand-600 block mb-1">Reference</span>
+              <p className="font-bold text-gray-900 group-hover:text-brand-700 transition-colors">Full API Reference →</p>
+              <p className="text-sm text-gray-500 mt-1">HTTP API docs with request/response schemas for all endpoints.</p>
+            </Link>
+          </div>
+
           {/* Footer CTA */}
-          <div className="mt-14 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white p-7 text-center">
+          <div className="mt-6 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white p-7 text-center">
             <h3 className="text-lg font-extrabold text-gray-900 mb-2">Ready to go live?</h3>
             <p className="text-gray-500 text-sm mb-5">
               Create your account and accept your first UPI payment in under 10 minutes.

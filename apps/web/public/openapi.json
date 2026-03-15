@@ -1,0 +1,258 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SeedhaPe API",
+    "version": "1.0.0",
+    "description": "REST API for creating and managing UPI payment orders. All merchant endpoints require a Bearer API key. Public endpoints (pay/*) require no authentication.",
+    "contact": { "url": "https://seedhape.com/docs" }
+  },
+  "servers": [
+    { "url": "https://api.seedhape.com", "description": "Production" },
+    { "url": "http://localhost:3001", "description": "Local development" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "API key starting with sp_live_ or sp_test_"
+      }
+    },
+    "schemas": {
+      "OrderStatus": {
+        "type": "string",
+        "enum": ["CREATED", "PENDING", "VERIFIED", "DISPUTED", "RESOLVED", "EXPIRED", "REJECTED"],
+        "description": "Current lifecycle status of the order"
+      },
+      "OrderData": {
+        "type": "object",
+        "required": ["id", "amount", "originalAmount", "currency", "status", "upiUri", "qrCode", "expiresAt", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "example": "sp_ord_ab12cd34ef56", "description": "SeedhaPe order ID" },
+          "externalOrderId": { "type": "string", "nullable": true, "example": "your_order_123", "description": "Your own order ID, echoed back" },
+          "amount": { "type": "integer", "example": 49900, "description": "Final amount in paise (may differ from originalAmount if randomized)" },
+          "originalAmount": { "type": "integer", "example": 49900, "description": "Requested amount in paise" },
+          "currency": { "type": "string", "example": "INR" },
+          "description": { "type": "string", "nullable": true, "example": "Pro plan subscription" },
+          "status": { "$ref": "#/components/schemas/OrderStatus" },
+          "upiUri": { "type": "string", "example": "upi://pay?pa=merchant@ybl&am=499.00&tn=sp_ord_ab12cd34ef56&cu=INR" },
+          "qrCode": { "type": "string", "description": "Base64 PNG data URL of the QR code", "example": "data:image/png;base64,iVBOR..." },
+          "expiresAt": { "type": "string", "format": "date-time", "example": "2026-03-15T12:34:56.000Z" },
+          "createdAt": { "type": "string", "format": "date-time", "example": "2026-03-15T12:19:56.000Z" },
+          "verifiedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "metadata": { "type": "object", "nullable": true, "additionalProperties": true, "description": "Arbitrary JSON passed at order creation, echoed in webhooks" }
+        }
+      },
+      "OrderStatusResponse": {
+        "type": "object",
+        "required": ["id", "status", "amount"],
+        "properties": {
+          "id": { "type": "string", "example": "sp_ord_ab12cd34ef56" },
+          "status": { "$ref": "#/components/schemas/OrderStatus" },
+          "amount": { "type": "integer", "example": 49900 },
+          "verifiedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "PublicOrderData": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "amount": { "type": "integer" },
+          "originalAmount": { "type": "integer" },
+          "currency": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "status": { "$ref": "#/components/schemas/OrderStatus" },
+          "upiUri": { "type": "string" },
+          "qrCode": { "type": "string", "description": "Base64 PNG data URL" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "expectedSenderName": { "type": "string", "nullable": true }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error", "code"],
+        "properties": {
+          "error": { "type": "string", "example": "Order not found" },
+          "code": { "type": "string", "example": "ORDER_NOT_FOUND" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/orders": {
+      "post": {
+        "operationId": "createOrder",
+        "summary": "Create a payment order",
+        "description": "Creates a new UPI payment order. Returns a UPI URI and QR code for the customer to pay. The order ID must be passed as the UPI transaction note (tn) for reliable auto-matching.",
+        "tags": ["Orders"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount"],
+                "properties": {
+                  "amount": { "type": "integer", "example": 49900, "description": "Amount in paise. ₹1 = 100 paise." },
+                  "description": { "type": "string", "example": "Pro plan subscription", "description": "Shown on payment page and in some UPI apps. Max 100 chars." },
+                  "externalOrderId": { "type": "string", "example": "your_order_123", "description": "Your own ID for deduplication. Echoed in webhooks." },
+                  "expectedSenderName": { "type": "string", "example": "Rahul Sharma", "description": "Payer name as shown in their UPI app. Strongly recommended — used as fallback matching signal when transaction note is unavailable." },
+                  "customerEmail": { "type": "string", "format": "email", "example": "rahul@example.com" },
+                  "customerPhone": { "type": "string", "example": "+919876543210" },
+                  "expiresInMinutes": { "type": "integer", "example": 15, "description": "Order TTL. Default: 30 minutes." },
+                  "metadata": { "type": "object", "additionalProperties": true, "example": { "userId": "usr_abc", "planKey": "PRO" }, "description": "Arbitrary JSON, echoed verbatim in all webhook payloads." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order created successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderData" } } }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Invalid or missing API key" },
+          "503": { "description": "Merchant device is offline" }
+        }
+      }
+    },
+    "/v1/orders/{orderId}": {
+      "get": {
+        "operationId": "getOrder",
+        "summary": "Get order details",
+        "description": "Returns the full order object including status, amounts, and metadata.",
+        "tags": ["Orders"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" }, "example": "sp_ord_ab12cd34ef56" }
+        ],
+        "responses": {
+          "200": { "description": "Order found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderData" } } } },
+          "401": { "description": "Invalid or missing API key" },
+          "404": { "description": "Order not found or belongs to another merchant" }
+        }
+      }
+    },
+    "/v1/orders/{orderId}/status": {
+      "get": {
+        "operationId": "getOrderStatus",
+        "summary": "Poll order status",
+        "description": "Lightweight status poll endpoint. Returns only status, amount, and verifiedAt. Use this for client-side polling instead of fetching the full order.",
+        "tags": ["Orders"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" }, "example": "sp_ord_ab12cd34ef56" }
+        ],
+        "responses": {
+          "200": { "description": "Status retrieved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderStatusResponse" } } } },
+          "401": { "description": "Invalid API key" },
+          "404": { "description": "Order not found" }
+        }
+      }
+    },
+    "/v1/pay/{orderId}": {
+      "get": {
+        "operationId": "getPublicOrder",
+        "summary": "Get public order data (no auth)",
+        "description": "Returns payment page data for the hosted checkout UI. No authentication required — intended for client-side use. Returns 503 if the merchant is offline.",
+        "tags": ["Payment Page"],
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Order data for payment page", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublicOrderData" } } } },
+          "404": { "description": "Order not found" },
+          "503": { "description": "Merchant is offline — payments temporarily blocked" }
+        }
+      }
+    },
+    "/v1/pay/{orderId}/expectation": {
+      "post": {
+        "operationId": "setExpectedSenderName",
+        "summary": "Set expected payer name (no auth)",
+        "description": "Stores the payer's name on the order to improve fallback matching accuracy. Called by the hosted payment page after the customer enters their name. Only valid for CREATED / PENDING / DISPUTED orders.",
+        "tags": ["Payment Page"],
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["expectedSenderName"],
+                "properties": {
+                  "expectedSenderName": { "type": "string", "minLength": 2, "maxLength": 100, "example": "Rahul Sharma" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Name saved",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "expectedSenderName": { "type": "string" } } } } }
+          },
+          "400": { "description": "Validation error or terminal order state" },
+          "404": { "description": "Order not found" }
+        }
+      }
+    },
+    "/v1/pay/{orderId}/screenshot": {
+      "post": {
+        "operationId": "uploadDisputeScreenshot",
+        "summary": "Upload dispute screenshot (no auth)",
+        "description": "Uploads a screenshot of the UPI payment confirmation. Creates or updates a dispute record. Only accepted for PENDING or DISPUTED orders. File must be an image ≤ 5 MB.",
+        "tags": ["Payment Page"],
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["screenshot"],
+                "properties": {
+                  "screenshot": { "type": "string", "format": "binary", "description": "Image file (JPEG/PNG/WebP), max 5 MB" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Screenshot uploaded, dispute created",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "screenshotUrl": { "type": "string" }, "message": { "type": "string" } } } } }
+          },
+          "400": { "description": "No file provided or order in wrong state" },
+          "404": { "description": "Order not found" }
+        }
+      }
+    },
+    "/v1/pay/qr/{orderId}": {
+      "get": {
+        "operationId": "getQrImage",
+        "summary": "Get QR code as PNG image (no auth)",
+        "description": "Returns the UPI QR code as a raw PNG image. Useful for embedding in emails, PDFs, or custom UIs without a data URL. Returns 503 if merchant is offline.",
+        "tags": ["Payment Page"],
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "PNG image", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } } } },
+          "404": { "description": "Order not found" },
+          "503": { "description": "Merchant offline" }
+        }
+      }
+    }
+  },
+  "tags": [
+    { "name": "Orders", "description": "Authenticated merchant endpoints for order management" },
+    { "name": "Payment Page", "description": "Public endpoints used by the hosted payment page and SDK modal" }
+  ]
+}

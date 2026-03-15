@@ -7,4 +7,14 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
+# React Native
+-keep class com.facebook.react.** { *; }
+-keep class com.facebook.hermes.** { *; }
+-keep class com.facebook.jni.** { *; }
+
+# SeedhaPe notification service — must not be obfuscated (referenced by AndroidManifest)
+-keep class com.mobileapp.notification.** { *; }
+-keep class com.mobileapp.MainActivity { *; }
+-keep class com.mobileapp.MainApplication { *; }
+
 # Add any project specific keep options here:
