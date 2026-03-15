@@ -7,7 +7,7 @@ import { redis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
 
 const QUEUE_NAME = 'heartbeat-monitor';
-const STALE_THRESHOLD_MS = 75_000; // Offline if no heartbeat for >75s
+const STALE_THRESHOLD_MS = 120_000; // Offline if no heartbeat for >2 minutes
 
 export const heartbeatMonitorQueue = new Queue(QUEUE_NAME, {
   connection: redis,
@@ -22,7 +22,7 @@ export async function scheduleHeartbeatMonitor(): Promise<void> {
     'check',
     {},
     {
-      repeat: { every: 30_000 },
+      repeat: { every: 60_000 },
       jobId: 'heartbeat-monitor-recurring',
     },
   );
@@ -51,7 +51,7 @@ export function startHeartbeatMonitorWorker(): Worker {
         logger.info({ count: result.length }, 'Marked merchants as OFFLINE due to stale heartbeat');
       }
     },
-    { connection: redis },
+    { connection: redis, stalledInterval: 300_000, drainDelay: 10_000 },
   );
 
   worker.on('failed', (job, err) => {

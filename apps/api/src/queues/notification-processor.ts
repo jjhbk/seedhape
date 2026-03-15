@@ -45,7 +45,7 @@ export function startNotificationWorker(): Worker {
         logger.debug({ merchantId, reason: result.reason }, 'Notification did not match any order');
       }
     },
-    { connection: redis, concurrency: 20 },
+    { connection: redis, concurrency: 20, stalledInterval: 300_000, drainDelay: 5_000 },
   );
 
   worker.on('failed', (job, err) => {

@@ -91,7 +91,7 @@ export function startWebhookWorker(): Worker {
         await attemptDelivery(deliveryId, url, body, signature, attempt);
       }
     },
-    { connection: redis, concurrency: 10 },
+    { connection: redis, concurrency: 10, stalledInterval: 300_000, drainDelay: 10_000 },
   );
 
   worker.on('failed', (job, err) => {

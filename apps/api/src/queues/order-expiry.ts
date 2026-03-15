@@ -52,7 +52,7 @@ export function startOrderExpiryWorker(): Worker {
         logger.info({ orderId }, 'Order expired');
       }
     },
-    { connection: redis },
+    { connection: redis, stalledInterval: 300_000, drainDelay: 10_000 },
   );
 
   worker.on('failed', (job, err) => {
