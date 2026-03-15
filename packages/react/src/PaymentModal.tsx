@@ -70,6 +70,9 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   const [nameError, setNameError] = useState<string | null>(null);
   const [savingName, setSavingName] = useState(false);
   const [nameConfirmed, setNameConfirmed] = useState(false);
+  const [disputeFile, setDisputeFile] = useState<File | null>(null);
+  const [disputeUploading, setDisputeUploading] = useState(false);
+  const [disputeDone, setDisputeDone] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -78,6 +81,9 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     setNameInput('');
     setNameError(null);
     setNameConfirmed(false);
+    setDisputeFile(null);
+    setDisputeUploading(false);
+    setDisputeDone(false);
     fetchOrder();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [open, orderId]);
@@ -113,6 +119,24 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
       onSuccess?.({ orderId: data.id, status: data.status as 'VERIFIED', amount: data.amount });
     } else if (data.status === 'EXPIRED') {
       onExpired?.(data.id);
+      // Stay open so user can submit a dispute screenshot
+    }
+    // DISPUTED: stay open for screenshot upload
+  }
+
+  async function submitDispute() {
+    if (!disputeFile || !orderId) return;
+    setDisputeUploading(true);
+    try {
+      const form = new FormData();
+      form.append('screenshot', disputeFile);
+      const res = await fetch(`${API_URL}/v1/pay/${orderId}/screenshot`, { method: 'POST', body: form });
+      if (!res.ok) throw new Error('Upload failed');
+      setDisputeDone(true);
+    } catch {
+      alert('Failed to upload. Please try again.');
+    } finally {
+      setDisputeUploading(false);
     }
   }
 
@@ -151,10 +175,47 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
               ₹{(order.amount / 100).toFixed(2)}
             </p>
           </>
-        ) : order.status === 'EXPIRED' ? (
+        ) : (order.status === 'EXPIRED' || order.status === 'DISPUTED') ? (
           <>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>⏰</div>
-            <p style={{ fontWeight: 600, fontSize: 18, color: '#dc2626' }}>Link Expired</p>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>
+              {order.status === 'EXPIRED' ? '⏰' : '🔎'}
+            </div>
+            <p style={{ fontWeight: 600, fontSize: 17, color: order.status === 'EXPIRED' ? '#dc2626' : '#d97706', margin: '0 0 4px' }}>
+              {order.status === 'EXPIRED' ? 'Link Expired' : 'Under Review'}
+            </p>
+            <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+              {order.status === 'EXPIRED'
+                ? 'Did you complete this payment? Upload a screenshot to raise a dispute.'
+                : 'Your screenshot was submitted. Upload another if needed.'}
+            </p>
+            {disputeDone ? (
+              <p style={{ color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ Dispute submitted for review</p>
+            ) : (
+              <>
+                <label style={{ display: 'block', cursor: 'pointer', marginBottom: 8 }}>
+                  <div style={{
+                    border: '2px dashed #d1d5db', borderRadius: 10, padding: '10px 12px',
+                    fontSize: 13, color: '#6b7280', textAlign: 'center',
+                  }}>
+                    {disputeFile ? `📎 ${disputeFile.name}` : '📎 Upload payment screenshot'}
+                  </div>
+                  <input
+                    type="file" accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => setDisputeFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {disputeFile && (
+                  <button
+                    style={{ ...baseStyles.btnPrimary, ...(disputeUploading ? baseStyles.btnDisabled : {}) }}
+                    onClick={submitDispute}
+                    disabled={disputeUploading}
+                  >
+                    {disputeUploading ? 'Uploading…' : 'Submit Dispute'}
+                  </button>
+                )}
+              </>
+            )}
           </>
         ) : !nameConfirmed ? (
           /* ── Step 1: Name gate ── */
