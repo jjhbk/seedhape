@@ -19,6 +19,8 @@ type Transaction = {
   utr: string | null;
   upiApp: string | null;
   senderName: string | null;
+  matchedVia: string | null;
+  rawNotification: Record<string, unknown> | null;
 };
 
 type Props = { apiKey: string };
@@ -134,6 +136,18 @@ export default function TransactionsScreen({ apiKey }: Props) {
                 {selected.upiApp && <DetailRow label="App" value={selected.upiApp} />}
                 {selected.utr && <DetailRow label="UTR" value={selected.utr} mono />}
                 {selected.description && <DetailRow label="Note" value={selected.description} />}
+                {selected.matchedVia && (
+                  <DetailRow
+                    label="Matched via"
+                    value={selected.matchedVia === 'tn_field' ? 'Order ID in note' : 'Amount + time window'}
+                  />
+                )}
+                {selected.rawNotification?.body ? (
+                  <DetailRow label="Notification" value={String(selected.rawNotification.body)} mono />
+                ) : null}
+                {selected.rawNotification?.packageName ? (
+                  <DetailRow label="Package" value={String(selected.rawNotification.packageName)} mono />
+                ) : null}
                 <DetailRow label="Order ID" value={selected.id} mono />
                 <DetailRow label="Created" value={new Date(selected.createdAt).toLocaleString('en-IN')} />
                 {selected.verifiedAt && (

@@ -68,15 +68,17 @@ export default async function TransactionsPage({
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Order ID</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Amount</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Status</th>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium">Sender</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">UTR</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">UPI App</th>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium">App</th>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium hidden lg:table-cell">Matched via</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Date</th>
             </tr>
           </thead>
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-gray-400">
+                <td colSpan={8} className="text-center py-12 text-gray-400">
                   No transactions yet
                 </td>
               </tr>
@@ -89,7 +91,7 @@ export default async function TransactionsPage({
                 };
                 return (
                   <tr key={String(tx['id'])} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600 max-w-[140px] truncate">
                       {String(tx['id'])}
                     </td>
                     <td className="px-4 py-3 font-semibold">
@@ -101,11 +103,21 @@ export default async function TransactionsPage({
                         {status.label}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {String(tx['senderName'] ?? '—')}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">
                       {String(tx['utr'] ?? '—')}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{String(tx['upiApp'] ?? '—')}</td>
-                    <td className="px-4 py-3 text-gray-400">
+                    <td className="px-4 py-3 text-gray-600 text-xs">{String(tx['upiApp'] ?? '—')}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 hidden lg:table-cell">
+                      {tx['matchedVia'] ? (
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${tx['matchedVia'] === 'tn_field' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+                          {String(tx['matchedVia']) === 'tn_field' ? 'Order ID' : 'Amount+Time'}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">
                       {tx['createdAt']
                         ? new Date(String(tx['createdAt'])).toLocaleDateString('en-IN')
                         : '—'}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  RefreshControl, Alert, Image, TextInput, Modal, Pressable,
+  RefreshControl, Alert, Image, TextInput, Modal, Pressable, Linking,
 } from 'react-native';
 
 import { paiseToRupees } from '../shared';
@@ -133,7 +133,13 @@ export default function DisputesScreen({ apiKey }: Props) {
         </Text>
 
         {item.screenshotUrl && (
-          <Image source={{ uri: item.screenshotUrl }} style={styles.screenshot} resizeMode="cover" />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => Linking.openURL(item.screenshotUrl!)}
+          >
+            <Image source={{ uri: item.screenshotUrl }} style={styles.screenshot} resizeMode="cover" />
+            <Text style={styles.screenshotHint}>Tap to view full screenshot</Text>
+          </TouchableOpacity>
         )}
         {item.resolutionNote && (
           <View style={styles.noteBox}>
@@ -206,7 +212,8 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: '700' },
   orderId: { fontSize: 11, color: C.textMuted, fontFamily: 'monospace', marginBottom: 4 },
   date: { fontSize: 12, color: C.textMuted, marginBottom: 10 },
-  screenshot: { width: '100%', height: 140, borderRadius: 10, marginBottom: 10 },
+  screenshot: { width: '100%', height: 140, borderRadius: 10, marginBottom: 4 },
+  screenshotHint: { fontSize: 11, color: C.textMuted, textAlign: 'center', marginBottom: 10 },
   noteBox: {
     backgroundColor: C.surfaceHigh, borderRadius: 10, padding: 12, marginBottom: 10,
     borderWidth: 1, borderColor: C.border,

@@ -87,6 +87,8 @@ router.get('/device/transactions', requireApiKey, async (req, res, next) => {
         utr: transactions.utr,
         upiApp: transactions.upiApp,
         senderName: transactions.senderName,
+        matchedVia: transactions.matchedVia,
+        rawNotification: transactions.rawNotification,
       })
       .from(orders)
       .leftJoin(transactions, eq(transactions.orderId, orders.id))

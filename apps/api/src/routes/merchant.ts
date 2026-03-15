@@ -175,6 +175,8 @@ router.get('/transactions', async (req, res, next) => {
         utr: transactions.utr,
         senderName: transactions.senderName,
         upiApp: transactions.upiApp,
+        matchedVia: transactions.matchedVia,
+        rawNotification: transactions.rawNotification,
       })
       .from(orders)
       .leftJoin(transactions, eq(transactions.orderId, orders.id))
