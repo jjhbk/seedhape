@@ -17,6 +17,11 @@ export function createApp() {
 
   // Security & parsing middleware
   app.use(helmet());
+
+  // /v1/pay/* is called directly from merchant browsers — must allow any origin
+  app.use('/v1/pay', cors({ origin: '*', methods: ['GET', 'POST'] }));
+
+  // All other routes restricted to known origins (dashboard + internal)
   app.use(
     cors({
       origin: process.env['CORS_ORIGINS']?.split(',') ?? ['http://localhost:3000'],

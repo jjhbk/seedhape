@@ -193,8 +193,15 @@ Every Play Store upload requires a higher `versionCode` than the previous releas
 
 
 cd /home/jjhbk/seedhape
-pnpm --filter @seedhape/sdk build
-pnpm --filter @seedhape/sdk publish --access public --no-git-checks
 
+# bump versions
+pnpm --filter @seedhape/sdk version patch
+pnpm --filter @seedhape/react version patch
+
+# build
+pnpm --filter @seedhape/sdk build
 pnpm --filter @seedhape/react build
+
+# publish
+pnpm --filter @seedhape/sdk publish --access public --no-git-checks
 pnpm --filter @seedhape/react publish --access public --no-git-checks

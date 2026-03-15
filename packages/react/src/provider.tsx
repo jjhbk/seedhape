@@ -1,14 +1,18 @@
 import React, { createContext, useContext } from 'react';
 import type { CreateOrderOptions, OrderData } from '@seedhape/sdk';
 
+const DEFAULT_BASE_URL = 'https://api.seedhape.com';
+
 interface SeedhaPeContextValue {
   onCreateOrder: (opts: CreateOrderOptions) => Promise<OrderData>;
+  baseUrl: string;
 }
 
 const SeedhaPeContext = createContext<SeedhaPeContextValue | null>(null);
 
 export function SeedhaPeProvider({
   onCreateOrder,
+  baseUrl = DEFAULT_BASE_URL,
   children,
 }: {
   /**
@@ -24,10 +28,12 @@ export function SeedhaPeProvider({
    * }
    */
   onCreateOrder: (opts: CreateOrderOptions) => Promise<OrderData>;
+  /** Override the SeedhaPe API base URL. Defaults to https://api.seedhape.com */
+  baseUrl?: string;
   children: React.ReactNode;
 }) {
   return (
-    <SeedhaPeContext.Provider value={{ onCreateOrder }}>
+    <SeedhaPeContext.Provider value={{ onCreateOrder, baseUrl }}>
       {children}
     </SeedhaPeContext.Provider>
   );
