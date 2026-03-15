@@ -165,14 +165,14 @@ export default function PaymentPage() {
           <div className="text-center mb-6">
             <XCircle className="h-16 w-16 text-red-500 mx-auto mb-3" />
             <h1 className="text-2xl font-bold text-gray-900">Link Expired</h1>
-            <p className="text-gray-500 mt-1">This payment link is no longer valid</p>
+            <p className="text-gray-500 mt-1">Did you complete this payment? Upload a screenshot to raise a dispute.</p>
           </div>
         )}
         {isDisputed && (
           <div className="text-center mb-6">
             <Clock className="h-16 w-16 text-yellow-500 mx-auto mb-3" />
             <h1 className="text-2xl font-bold text-gray-900">Under Review</h1>
-            <p className="text-gray-500 mt-1">Your payment screenshot has been submitted</p>
+            <p className="text-gray-500 mt-1">Your payment is being reviewed. Upload another screenshot if needed.</p>
           </div>
         )}
 
@@ -182,6 +182,45 @@ export default function PaymentPage() {
           <p className="text-3xl font-bold text-brand-800">₹{paiseToRupees(order.amount)}</p>
           {order.description && <p className="text-sm text-brand-600 mt-1">{order.description}</p>}
         </div>
+
+        {/* ── Dispute upload — shown for EXPIRED and DISPUTED ── */}
+        {(isExpired || isDisputed) && (
+          <div className="pt-2">
+            {uploadDone ? (
+              <div className="text-center py-4">
+                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                <p className="text-sm text-green-600 font-medium">Screenshot submitted for review</p>
+                <p className="text-xs text-gray-400 mt-1">The merchant will verify and resolve your payment</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="block w-full cursor-pointer">
+                  <div className="flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-3 px-4 hover:border-brand-300 transition-colors">
+                    <Upload className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-500">
+                      {uploadFile ? uploadFile.name : 'Upload payment screenshot'}
+                    </span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {uploadFile && (
+                  <button
+                    onClick={submitScreenshot}
+                    disabled={uploading}
+                    className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? 'Uploading...' : 'Submit dispute'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Step 1: Collect payer name (gates the QR code) ── */}
         {isPending && !nameConfirmed && (

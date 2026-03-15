@@ -182,11 +182,67 @@ export class SeedhaPe {
       `;
       qrEl.innerHTML = '';
       actionsEl.innerHTML = '';
-    } else if (order.status === 'EXPIRED') {
+    } else if (order.status === 'EXPIRED' || order.status === 'DISPUTED') {
+      const isExpired = order.status === 'EXPIRED';
       statusEl.innerHTML = `
-        <p style="font-size: 18px; font-weight: 600; color: #dc2626;">Payment Expired</p>
+        <div style="font-size: 40px;">${isExpired ? '⏰' : '🔎'}</div>
+        <p style="font-size: 18px; font-weight: 600; color: ${isExpired ? '#dc2626' : '#d97706'}; margin-top: 8px;">
+          ${isExpired ? 'Payment Link Expired' : 'Under Review'}
+        </p>
+        <p style="font-size: 13px; color: #666; margin-top: 4px;">
+          ${isExpired ? 'Did you complete this payment?' : 'Your screenshot has been submitted.'}
+          ${isExpired ? ' Upload a screenshot to raise a dispute.' : ' Upload another screenshot if needed.'}
+        </p>
       `;
       qrEl.innerHTML = '';
+      if (!actionsEl.querySelector('#sp-dispute-done')) {
+        actionsEl.innerHTML = `
+          <div id="sp-dispute-area" style="margin-top: 8px;">
+            <label style="display: block; cursor: pointer;">
+              <div id="sp-file-label" style="
+                border: 2px dashed #d1d5db; border-radius: 10px; padding: 12px;
+                font-size: 13px; color: #6b7280; text-align: center;
+              ">📎 Upload payment screenshot</div>
+              <input id="sp-file-input" type="file" accept="image/*" style="display: none;" />
+            </label>
+            <button id="sp-submit-dispute" style="
+              display: none; width: 100%; margin-top: 8px; padding: 10px;
+              background: #16a34a; color: white; border: none; border-radius: 10px;
+              font-size: 14px; font-weight: 600; cursor: pointer;
+            ">Submit Dispute</button>
+          </div>
+        `;
+
+        const fileInput = actionsEl.querySelector('#sp-file-input') as HTMLInputElement;
+        const fileLabel = actionsEl.querySelector('#sp-file-label')!;
+        const submitBtn = actionsEl.querySelector('#sp-submit-dispute') as HTMLButtonElement;
+
+        fileInput.addEventListener('change', () => {
+          const file = fileInput.files?.[0];
+          if (file) {
+            fileLabel.textContent = `📎 ${file.name}`;
+            (submitBtn as HTMLElement).style.display = 'block';
+          }
+        });
+
+        submitBtn.addEventListener('click', async () => {
+          const file = fileInput.files?.[0];
+          if (!file) return;
+          submitBtn.textContent = 'Uploading...';
+          submitBtn.disabled = true;
+          try {
+            const form = new FormData();
+            form.append('screenshot', file);
+            const res = await fetch(`${this.baseUrl}/v1/pay/${order.id}/screenshot`, { method: 'POST', body: form });
+            if (!res.ok) throw new Error('Upload failed');
+            actionsEl.innerHTML = `<div id="sp-dispute-done" style="color: #16a34a; font-size: 14px; font-weight: 600;">✓ Dispute submitted for review</div>`;
+          } catch {
+            submitBtn.textContent = 'Submit Dispute';
+            submitBtn.disabled = false;
+            alert('Upload failed. Please try again.');
+          }
+        });
+      }
     } else {
       statusEl.innerHTML = `
         <p style="font-size: 18px; font-weight: 600; color: #111;">${order.description ?? 'Complete Payment'}</p>
@@ -231,10 +287,10 @@ export class SeedhaPe {
         cleanup();
         resolve(result);
       }, 2000);
-    } else if (status === 'EXPIRED') {
-      options.onExpired?.(order.id);
-      cleanup();
-      resolve(result);
+    } else if (status === 'EXPIRED' || status === 'DISPUTED') {
+      // Stay open so the user can upload a dispute screenshot
+      if (status === 'EXPIRED') options.onExpired?.(order.id);
+      // Modal remains visible; user closes it manually after submitting dispute
     } else {
       cleanup();
       resolve(result);

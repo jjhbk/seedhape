@@ -110,8 +110,8 @@ router.post('/:orderId/screenshot', upload.single('screenshot'), async (req, res
       throw new AppError(404, 'Order not found', 'ORDER_NOT_FOUND');
     }
 
-    if (order.status !== 'DISPUTED' && order.status !== 'PENDING') {
-      throw new AppError(400, 'Screenshots only accepted for pending/disputed orders', 'INVALID_STATE');
+    if (!['PENDING', 'DISPUTED', 'EXPIRED'].includes(order.status)) {
+      throw new AppError(400, 'Screenshots only accepted for pending, disputed, or expired orders', 'INVALID_STATE');
     }
 
     if (!req.file) {
