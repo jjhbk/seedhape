@@ -297,9 +297,6 @@ importers:
       '@seedhape/sdk':
         specifier: workspace:*
         version: link:../sdk
-      '@seedhape/shared':
-        specifier: workspace:*
-        version: link:../shared
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -318,13 +315,6 @@ importers:
         version: 5.9.3
 
   packages/sdk:
-    dependencies:
-      '@seedhape/shared':
-        specifier: workspace:*
-        version: link:../shared
-      zod:
-        specifier: ^3.0.0
-        version: 3.25.76
     devDependencies:
       '@seedhape/typescript-config':
         specifier: workspace:*
