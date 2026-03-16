@@ -110,7 +110,8 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const terminalHandledRef = useRef(false);
+  const successHandledRef = useRef(false);
+  const expiredNotifiedRef = useRef(false);
 
   useEffect(() => {
     if (!open || !orderId) return;
@@ -124,7 +125,8 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     setSecondsLeft(null);
     setTimerExpired(false);
     setShowDisputeEarly(false);
-    terminalHandledRef.current = false;
+    successHandledRef.current = false;
+    expiredNotifiedRef.current = false;
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current);
       successTimeoutRef.current = null;
@@ -190,10 +192,10 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   }
 
   function handleTerminal(data: OrderData) {
-    if (terminalHandledRef.current) return;
-    terminalHandledRef.current = true;
     setSecondsLeft(null);
     if (data.status === 'VERIFIED' || data.status === 'RESOLVED') {
+      if (successHandledRef.current) return;
+      successHandledRef.current = true;
       const result = { orderId: data.id, status: data.status as 'VERIFIED', amount: data.amount };
       // Keep success UI visible briefly before notifying host app, then close.
       successTimeoutRef.current = setTimeout(() => {
@@ -201,6 +203,8 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
         onClose();
       }, 2500);
     } else if (data.status === 'EXPIRED') {
+      if (expiredNotifiedRef.current) return;
+      expiredNotifiedRef.current = true;
       onExpired?.(data.id);
     }
   }
