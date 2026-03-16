@@ -109,6 +109,8 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   const [showDisputeEarly, setShowDisputeEarly] = useState(false);
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const terminalHandledRef = useRef(false);
 
   useEffect(() => {
     if (!open || !orderId) return;
@@ -122,10 +124,16 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     setSecondsLeft(null);
     setTimerExpired(false);
     setShowDisputeEarly(false);
+    terminalHandledRef.current = false;
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
     fetchOrder();
     return () => {
       if (pollRef.current)  clearInterval(pollRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
     };
   }, [open, orderId]);
 
@@ -146,7 +154,9 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     const data = await res.json() as OrderData;
     setOrder(data);
     if (data.expectedSenderName) setNameInput(data.expectedSenderName);
-    if (!TERMINAL.includes(data.status)) {
+    if (TERMINAL.includes(data.status)) {
+      handleTerminal(data);
+    } else {
       startPolling();
       startTimer(data.expiresAt);
     }
@@ -180,9 +190,16 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   }
 
   function handleTerminal(data: OrderData) {
+    if (terminalHandledRef.current) return;
+    terminalHandledRef.current = true;
     setSecondsLeft(null);
     if (data.status === 'VERIFIED' || data.status === 'RESOLVED') {
-      onSuccess?.({ orderId: data.id, status: data.status as 'VERIFIED', amount: data.amount });
+      const result = { orderId: data.id, status: data.status as 'VERIFIED', amount: data.amount };
+      // Keep success UI visible briefly before notifying host app, then close.
+      successTimeoutRef.current = setTimeout(() => {
+        onSuccess?.(result);
+        onClose();
+      }, 2500);
     } else if (data.status === 'EXPIRED') {
       onExpired?.(data.id);
     }
@@ -197,6 +214,19 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
       const res = await fetch(`${API_URL}/v1/pay/${orderId}/screenshot`, { method: 'POST', body: form });
       if (!res.ok) throw new Error('Upload failed');
       setDisputeDone(true);
+      // Restart polling so onSuccess fires if the merchant approves the dispute.
+      // Use a tighter terminal set — DISPUTED/EXPIRED can still resolve to VERIFIED.
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        const r = await fetch(`${API_URL}/v1/pay/${orderId}`);
+        if (!r.ok) return;
+        const d = await r.json() as OrderData;
+        setOrder(d);
+        if (d.status === 'VERIFIED' || d.status === 'RESOLVED' || d.status === 'REJECTED') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          handleTerminal(d);
+        }
+      }, 3000);
     } catch {
       alert('Failed to upload. Please try again.');
     } finally {

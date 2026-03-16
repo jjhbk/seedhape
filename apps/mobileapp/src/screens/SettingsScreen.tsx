@@ -79,7 +79,7 @@ export default function SettingsScreen({ apiKey, onSignOut }: Props) {
       });
       if (res.ok) {
         setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 2500);
+        setTimeout(() => setSaveSuccess(false), 8000);
       } else {
         Alert.alert('Error', 'Failed to save settings.');
       }

@@ -496,8 +496,12 @@ export class SeedhaPe {
         if (lockDiv) lockDiv.style.display = 'none';
       }
 
-      options.onSuccess?.(result);
-      setTimeout(() => { cleanup(); resolve(result); }, 2500);
+      // Keep success UI visible briefly before notifying host app, then close.
+      setTimeout(() => {
+        options.onSuccess?.(result);
+        cleanup();
+        resolve(result);
+      }, 2500);
       return;
     }
 

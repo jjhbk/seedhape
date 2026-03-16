@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { PaymentButtonProps } from './types.js';
 import { PaymentModal } from './PaymentModal.js';
 import { useSeedhaPeContext } from './provider.js';
