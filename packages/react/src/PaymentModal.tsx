@@ -106,6 +106,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   const [disputeDone, setDisputeDone]       = useState(false);
   const [secondsLeft, setSecondsLeft]       = useState<number | null>(null);
   const [timerExpired, setTimerExpired]     = useState(false);
+  const [showDisputeEarly, setShowDisputeEarly] = useState(false);
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -120,6 +121,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     setDisputeDone(false);
     setSecondsLeft(null);
     setTimerExpired(false);
+    setShowDisputeEarly(false);
     fetchOrder();
     return () => {
       if (pollRef.current)  clearInterval(pollRef.current);
@@ -231,8 +233,10 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   const isDispute  = order?.status === 'EXPIRED'  || order?.status === 'DISPUTED';
   // Show dispute UI as soon as client timer hits 0, even before the server poll confirms EXPIRED.
   // Polling continues — if the server comes back VERIFIED, isSuccess wins and dispute UI hides.
-  const showDisputeUI   = isDispute || (timerExpired && !isSuccess);
-  const isExpiredBanner = timerExpired ? order?.status !== 'DISPUTED' : order?.status === 'EXPIRED';
+  const showDisputeUI   = isDispute || (timerExpired && !isSuccess) || showDisputeEarly;
+  const isExpiredBanner = showDisputeEarly
+    ? order?.status !== 'DISPUTED'
+    : timerExpired ? order?.status !== 'DISPUTED' : order?.status === 'EXPIRED';
 
   /* ─── Spinner helper ─── */
   const Spinner = ({ size = 18, light = false }: { size?: number; light?: boolean }) => (
@@ -515,7 +519,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
           )}
 
           {/* ── Step 1: Name gate ── */}
-          {order && !isTerminal && !nameConfirmed && !timerExpired && (
+          {order && !isTerminal && !nameConfirmed && !timerExpired && !showDisputeEarly && (
             <div>
               <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: '0 0 5px' }}>
                 Confirm your UPI name
@@ -581,7 +585,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
           )}
 
           {/* ── Step 2: QR ── */}
-          {order && !isTerminal && nameConfirmed && !timerExpired && (
+          {order && !isTerminal && nameConfirmed && !timerExpired && !showDisputeEarly && (
             <div style={{ textAlign: 'center' }}>
               {/* QR frame */}
               <div style={{
@@ -643,6 +647,21 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
               </div>
 
               <StepDots step={2} />
+            </div>
+          )}
+          {/* ── Already paid? link — visible during active payment ── */}
+          {order && !isTerminal && !timerExpired && !showDisputeEarly && (
+            <div style={{ textAlign: 'center', marginTop: 14, marginBottom: 4 }}>
+              <button
+                onClick={() => setShowDisputeEarly(true)}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  fontSize: 12, color: '#9ca3af', cursor: 'pointer',
+                  textDecoration: 'underline', fontFamily: F,
+                }}
+              >
+                Already paid? Raise a dispute
+              </button>
             </div>
           )}
         </div>

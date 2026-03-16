@@ -68,11 +68,11 @@ export function PaymentButton({
           open={true}
           onClose={() => setOrderId(null)}
           onSuccess={(result) => {
-            setOrderId(null);
             onSuccess?.(result);
           }}
           onExpired={(id) => {
-            setOrderId(null);
+            // Do NOT close the modal here — the dispute upload screen is now visible.
+            // The modal stays open until the user explicitly closes it via onClose.
             onExpired?.(id);
           }}
         />
