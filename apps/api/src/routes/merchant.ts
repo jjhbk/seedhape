@@ -14,7 +14,6 @@ import {
   orders,
   transactions,
   disputes,
-  webhookDeliveries,
   apiKeys,
 } from '../db/schema/index.js';
 import { AppError } from '../middleware/error-handler.js';
@@ -98,6 +97,7 @@ router.get('/profile', async (req, res, next) => {
       businessName: merchant.businessName,
       upiId: merchant.upiId,
       webhookUrl: merchant.webhookUrl,
+      webhookSecretSet: !!merchant.webhookSecret,
       allowedDomain:
         (merchant.settings as { allowedDomain?: string | null } | null)?.allowedDomain ?? null,
       status: merchant.status,

@@ -23,12 +23,21 @@ class SeedhaPeNotificationService : NotificationListenerService() {
     // UPI app packages we monitor
     private val upiPackages = setOf(
         "com.phonepe.app",
-        "com.google.android.apps.nbu.paisa.user",
+        "com.google.android.apps.nbu.paisa.user",  // GPay personal
+        "com.google.android.apps.pay.merchant",     // GPay for Business / Merchant
         "net.one97.paytm",
         "in.org.npci.upiapp",
         "in.amazon.mShop.android.shopping",
         "com.whatsapp",
-        "com.dreamplug.androidapp"
+        "com.dreamplug.androidapp",
+        "com.samsung.android.spay",
+        "com.csam.icici.bank.imobile",
+        "com.sbi.lotusintouch",
+        "com.axis.mobile",
+        "com.mobikwik_new",
+        "com.slicepay",
+        "in.juspay.hypersdk",
+        "com.nextbillion.groww",
     )
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -37,8 +46,14 @@ class SeedhaPeNotificationService : NotificationListenerService() {
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
-        val title = extras.getString("android.title") ?: ""
-        val body = extras.getCharSequence("android.text")?.toString() ?: ""
+        // Use getCharSequence + toString() for both fields — GPay and Paytm use SpannableString
+        // instead of plain String, so getString() throws ClassCastException on those apps.
+        val title = extras.getCharSequence("android.title")?.toString() ?: ""
+        // Prefer bigText (expanded notification) — it contains the full detail including
+        // transaction note / tn field. Fall back to the standard single-line text.
+        val body = extras.getCharSequence("android.bigText")?.toString()?.takeIf { it.isNotBlank() }
+            ?: extras.getCharSequence("android.text")?.toString()
+            ?: ""
 
         if (body.isBlank()) return
 
@@ -134,11 +149,20 @@ class SeedhaPeNotificationService : NotificationListenerService() {
     private fun getAppName(packageName: String): String = when (packageName) {
         "com.phonepe.app" -> "PhonePe"
         "com.google.android.apps.nbu.paisa.user" -> "Google Pay"
+        "com.google.android.apps.pay.merchant" -> "Google Pay Business"
         "net.one97.paytm" -> "Paytm"
         "in.org.npci.upiapp" -> "BHIM"
         "in.amazon.mShop.android.shopping" -> "Amazon Pay"
         "com.whatsapp" -> "WhatsApp Pay"
         "com.dreamplug.androidapp" -> "CRED"
+        "com.samsung.android.spay" -> "Samsung Pay"
+        "com.csam.icici.bank.imobile" -> "iMobile Pay"
+        "com.sbi.lotusintouch" -> "SBI YONO"
+        "com.axis.mobile" -> "Axis Mobile"
+        "com.mobikwik_new" -> "MobiKwik"
+        "com.slicepay" -> "Slice"
+        "in.juspay.hypersdk" -> "Jupiter"
+        "com.nextbillion.groww" -> "Groww"
         else -> packageName
     }
 

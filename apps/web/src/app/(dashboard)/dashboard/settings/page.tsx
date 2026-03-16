@@ -11,6 +11,7 @@ type Profile = {
   upiId: string | null;
   webhookUrl: string | null;
   webhookSecret?: string | null;
+  webhookSecretSet?: boolean;
   allowedDomain?: string | null;
 };
 
@@ -256,13 +257,21 @@ export default function SettingsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Secret</label>
+            {profile.webhookSecretSet && !profile.webhookSecret ? (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                  Secret is set — enter a new value below to rotate it
+                </span>
+              </div>
+            ) : null}
             <div className="flex gap-2">
               <input
                 type={showWebhookSecret ? 'text' : 'password'}
                 value={profile.webhookSecret ?? ''}
                 onChange={(e) => setProfile({ ...profile, webhookSecret: e.target.value })}
                 className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
-                placeholder="min 16 chars (used to sign X-SeedhaPe-Signature)"
+                placeholder={profile.webhookSecretSet ? 'Enter new secret to rotate…' : 'Generate or enter min 32 chars'}
               />
               <button
                 type="button"
@@ -272,9 +281,22 @@ export default function SettingsPage() {
               >
                 {showWebhookSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const secret = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+                    .map((b) => b.toString(16).padStart(2, '0'))
+                    .join('');
+                  setProfile({ ...profile, webhookSecret: secret });
+                  setShowWebhookSecret(true);
+                }}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 whitespace-nowrap"
+              >
+                Generate
+              </button>
             </div>
             <p className="text-xs text-gray-400 mt-1">
-              Verify the <code className="bg-gray-100 px-1 rounded">X-SeedhaPe-Signature</code> header on incoming webhooks using this secret.
+              Verify the <code className="bg-gray-100 px-1 rounded">X-SeedhaPe-Signature</code> header on incoming webhooks using this secret. Save changes after generating.
             </p>
           </div>
         </div>

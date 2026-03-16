@@ -1,6 +1,6 @@
 {
   "name": "@seedhape/react",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "description": "SeedhaPe React components — PaymentButton, PaymentModal, usePayment hook",
   "exports": {
     ".": {

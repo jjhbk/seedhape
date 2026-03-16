@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Sparkles,
+  BookOpen,
 } from 'lucide-react';
 import { SeedhaPeLogo } from '@/components/brand/SeedhaPeLogo';
 
@@ -126,6 +127,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         {/* Upgrade prompt + user */}
         <div className="p-3 border-t border-gray-100 shrink-0 space-y-2">
+          <Link
+            href="/docs"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+          >
+            <BookOpen className="h-3.5 w-3.5 text-slate-400" />
+            Documentation
+          </Link>
           <Link
             href="/pricing"
             onClick={() => setSidebarOpen(false)}

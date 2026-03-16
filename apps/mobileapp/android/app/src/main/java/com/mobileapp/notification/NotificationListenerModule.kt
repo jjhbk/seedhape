@@ -1,10 +1,12 @@
 package com.mobileapp.notification
 
+import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.Settings
-import android.service.notification.NotificationListenerService
-import android.service.notification.StatusBarNotification
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -23,6 +25,7 @@ class NotificationListenerModule(
 
     companion object {
         var instance: NotificationListenerModule? = null
+        private const val SMS_PERMISSION_REQUEST_CODE = 1001
     }
 
     init {
@@ -53,6 +56,24 @@ class NotificationListenerModule(
         reactContext
             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
             .emit("UPINotification", data)
+    }
+
+    @ReactMethod
+    fun isSmsPermissionGranted(promise: Promise) {
+        val granted = ContextCompat.checkSelfPermission(
+            reactContext, Manifest.permission.RECEIVE_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+        promise.resolve(granted)
+    }
+
+    @ReactMethod
+    fun requestSmsPermission() {
+        val activity = reactContext.currentActivity ?: return
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS),
+            SMS_PERMISSION_REQUEST_CODE,
+        )
     }
 
     @ReactMethod

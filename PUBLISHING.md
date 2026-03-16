@@ -199,6 +199,7 @@ pnpm --filter @seedhape/sdk version patch
 pnpm --filter @seedhape/react version patch
 
 # build
+pnpm --filter @seedhape/shared build
 pnpm --filter @seedhape/sdk build
 pnpm --filter @seedhape/react build
 

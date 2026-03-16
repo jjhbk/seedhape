@@ -552,9 +552,9 @@ const tocItems = [
 
 export default function MerchantDocsPage() {
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white h-screen flex flex-col overflow-hidden">
       {/* Page hero */}
-      <div className="border-b border-gray-100 bg-gradient-to-br from-white to-brand-50/30 pt-24 pb-10 px-6">
+      <div className="shrink-0 border-b border-gray-100 bg-gradient-to-br from-white to-brand-50/30 pt-24 pb-10 px-6">
         <div className="max-w-5xl mx-auto">
           <span className="text-xs font-bold tracking-widest text-brand-600 uppercase">Documentation</span>
           <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-gray-900">
@@ -581,11 +581,11 @@ export default function MerchantDocsPage() {
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 flex gap-10 lg:gap-16 items-start">
+      {/* Two-column layout — fills remaining viewport, both columns scroll independently */}
+      <div className="flex-1 overflow-hidden max-w-5xl mx-auto w-full px-4 sm:px-6 flex gap-10 lg:gap-16">
 
-        {/* Sticky TOC sidebar */}
-        <aside className="hidden lg:block w-52 shrink-0 sticky top-24">
+        {/* TOC sidebar — independently scrollable */}
+        <aside className="hidden lg:flex flex-col w-52 shrink-0 overflow-y-auto py-10 scrollbar-thin">
           <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-3 px-2">On this page</p>
           <nav className="space-y-0.5">
             {tocItems.map((item) => (
@@ -604,8 +604,8 @@ export default function MerchantDocsPage() {
           </nav>
         </aside>
 
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
+        {/* Main content — independently scrollable */}
+        <div className="flex-1 min-w-0 overflow-y-auto py-10">
 
           {/* ── QUICKSTART ───────────────────────────────────────────────────── */}
           <div id="quickstart" className="scroll-mt-24 mb-3">

@@ -125,6 +125,17 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     };
   }, [open, orderId]);
 
+  // Warn on browser refresh / tab close while payment is pending
+  useEffect(() => {
+    if (!open || !order || TERMINAL.includes(order.status)) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [open, order]);
+
   async function fetchOrder() {
     const res = await fetch(`${API_URL}/v1/pay/${orderId}`);
     if (!res.ok) return;
@@ -208,7 +219,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   if (!open) return null;
 
   const isUrgent  = secondsLeft !== null && secondsLeft <= 60;
-  const isWarning = secondsLeft !== null && secondsLeft <= 300 && !isUrgent;
+  const isWarning = secondsLeft !== null && secondsLeft <= 120 && !isUrgent;
   const isTerminal = order && TERMINAL.includes(order.status);
   const isSuccess  = order?.status === 'VERIFIED' || order?.status === 'RESOLVED';
   const isDispute  = order?.status === 'EXPIRED'  || order?.status === 'DISPUTED';
@@ -625,6 +636,26 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
             </div>
           )}
         </div>
+
+        {/* ── Do-not-close warning — only while payment is active ── */}
+        {order && !isTerminal && (
+          <div style={{
+            margin: '0 16px 4px',
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: 10,
+            padding: '8px 12px',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <p style={{ fontSize: 11, color: '#92400e', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
+              Do not close or refresh this page until the payment is complete or the timer runs out.
+            </p>
+          </div>
+        )}
 
         {/* ── Footer ── */}
         <div style={{

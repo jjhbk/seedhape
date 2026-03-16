@@ -8,7 +8,7 @@ import { logger } from '../lib/logger.js';
 import { enqueueWebhook } from '../queues/webhook.js';
 
 export type MatchResult =
-  | { matched: true; orderId: string; method: 'tn_field' | 'amount_window' }
+  | { matched: true; orderId: string; method: 'order_id_direct' | 'tn_field' | 'amount_window' }
   | { matched: false; reason: string };
 
 function normalizeName(name: string): string {
@@ -60,11 +60,22 @@ export async function matchNotification(
     }
   }
 
-  // Strategy 1: tn field contains order ID
+  // Strategy 0: direct order ID scan from raw notification body/title.
+  // Catches order IDs that UPI apps embed in the notification text without a standard
+  // "Note:" prefix — GPay in particular includes the UPI tn field in plain text.
+  const rawText = `${notification.rawTitle ?? ''} ${notification.rawBody ?? ''}`;
+  const rawOrderIdMatch = rawText.match(/sp_ord_[a-z0-9]+/i);
+  if (rawOrderIdMatch) {
+    const orderId = rawOrderIdMatch[0]!.toLowerCase();
+    const result = await verifyAndSettle(orderId, merchantId, amount, notification, 'order_id_direct');
+    if (result.matched) return result;
+  }
+
+  // Strategy 1: parser-extracted tn field contains order ID
   if (transactionNote) {
-    const orderIdMatch = transactionNote.match(/sp_ord_[a-z0-9]+/);
+    const orderIdMatch = transactionNote.match(/sp_ord_[a-z0-9]+/i);
     if (orderIdMatch) {
-      const orderId = orderIdMatch[0];
+      const orderId = orderIdMatch[0]!.toLowerCase();
       const result = await verifyAndSettle(orderId, merchantId, amount, notification, 'tn_field');
       if (result.matched) return result;
     }
@@ -143,7 +154,7 @@ async function verifyAndSettle(
   merchantId: string,
   amount: number,
   notification: ParsedNotification,
-  method: 'tn_field' | 'amount_window',
+  method: 'order_id_direct' | 'tn_field' | 'amount_window',
 ): Promise<MatchResult> {
   const [order] = await db
     .select()

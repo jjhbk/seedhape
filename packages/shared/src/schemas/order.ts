@@ -15,7 +15,7 @@ export const CreateOrderSchema = z.object({
     .string()
     .regex(/^[6-9]\d{9}$/, 'Invalid Indian mobile number')
     .optional(),
-  expiresInMinutes: z.number().int().min(5).max(1440).default(30),
+  expiresInMinutes: z.number().int().min(5).max(1440).default(5),
   metadata: z.record(z.unknown()).optional(),
   randomizeAmount: z.boolean().default(true),
 });
