@@ -22,7 +22,7 @@ const snippets = {
   "originalAmount": 49900,
   "currency": "INR",
   "description": "Pro plan subscription",
-  "status": "PENDING",
+  "status": "CREATED",
   "upiUri": "upi://pay?pa=merchant@ybl&pn=My+Store&am=499.00&tn=sp_ord_ab12cd34ef56&cu=INR",
   "qrCode": "data:image/png;base64,iVBORw0KGgoAAAANSUhEU...",
   "expiresAt": "2026-03-15T12:34:56.000Z",
@@ -37,15 +37,28 @@ const snippets = {
 pnpm add @seedhape/sdk
 yarn add @seedhape/sdk`,
 
-  sdkInit: `// server-side only — never expose API keys in the browser
+  sdkInit: `// lib/seedhape.ts — server only, never import from the browser
 import { SeedhaPe } from '@seedhape/sdk';
 
-const seedhape = new SeedhaPe({
-  apiKey: process.env.SEEDHAPE_API_KEY!, // sp_live_...
-  // baseUrl: 'https://api.seedhape.com',  // default, override if self-hosting
-});`,
+function getClient(): SeedhaPe {
+  if (!process.env.SEEDHAPE_API_KEY) throw new Error('SEEDHAPE_API_KEY is not set');
+  return new SeedhaPe({
+    apiKey:  process.env.SEEDHAPE_API_KEY,
+    baseUrl: process.env.SEEDHAPE_BASE_URL, // optional — omit for production default
+  });
+}
 
-  sdkCreateOrder: `const order = await seedhape.createOrder({
+export async function createOrder(params: Parameters<SeedhaPe['createOrder']>[0]) {
+  return getClient().createOrder(params);
+}
+
+export async function getOrderStatus(orderId: string) {
+  return getClient().getOrderStatus(orderId);
+}`,
+
+  sdkCreateOrder: `import { createOrder } from '@/lib/seedhape';
+
+const order = await createOrder({
   amount: 49900,               // required — amount in paise (₹499 = 49900)
   description: 'Pro plan',     // shown to the payer
   externalOrderId: 'ord_123',  // your own order ID for deduplication
@@ -91,24 +104,98 @@ const status = await seedhape.getOrderStatus('sp_ord_ab12cd34ef56');
 
   reactInstall: `npm install @seedhape/react @seedhape/sdk`,
 
-  reactProviderSetup: `// app/layout.tsx  or  _app.tsx
+  reactProviderSetup: `// app/layout.tsx  (Next.js App Router — recommended)
 import { SeedhaPeProvider } from '@seedhape/react';
 import { SeedhaPe } from '@seedhape/sdk';
+import type { CreateOrderOptions } from '@seedhape/sdk';
 
-// This runs on the SERVER — your secret key never reaches the browser.
-async function createOrder(opts) {
+// Runs on the SERVER only — API key never reaches the browser.
+async function createOrder(opts: CreateOrderOptions) {
   'use server';
-  const client = new SeedhaPe({ apiKey: process.env.SEEDHAPE_SECRET_KEY! });
+  const client = new SeedhaPe({
+    apiKey:  process.env.SEEDHAPE_API_KEY!,
+    baseUrl: process.env.SEEDHAPE_BASE_URL,   // omit to use the default production URL
+  });
   return client.createOrder(opts);
 }
 
-export default function Layout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SeedhaPeProvider onCreateOrder={createOrder}>
-      {children}
-    </SeedhaPeProvider>
+    <html lang="en">
+      <body>
+        <SeedhaPeProvider onCreateOrder={createOrder}>
+          {children}
+        </SeedhaPeProvider>
+      </body>
+    </html>
   );
 }`,
+
+  reactProviderVite: `// src/main.tsx  (Vite / Create React App / any SPA)
+// onCreateOrder proxies to your own backend — API key lives there, not here.
+import { SeedhaPeProvider } from '@seedhape/react';
+import type { CreateOrderOptions } from '@seedhape/sdk';
+
+async function createOrder(opts: CreateOrderOptions) {
+  const res = await fetch('/api/create-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts),
+  });
+  if (!res.ok) throw new Error('Order creation failed');
+  return res.json();
+}
+
+export default function App() {
+  return (
+    <SeedhaPeProvider onCreateOrder={createOrder}>
+      <Router />
+    </SeedhaPeProvider>
+  );
+}
+
+// ── Your backend (Express) ───────────────────────────────────────────────────
+// import { SeedhaPe } from '@seedhape/sdk';
+// const sp = new SeedhaPe({ apiKey: process.env.SEEDHAPE_API_KEY!, baseUrl: process.env.SEEDHAPE_BASE_URL });
+// app.post('/api/create-order', express.json(), async (req, res) => {
+//   const order = await sp.createOrder(req.body);
+//   res.json(order);
+// });`,
+
+  reactProviderRemix: `// app/root.tsx  (Remix)
+import { SeedhaPeProvider } from '@seedhape/react';
+import type { CreateOrderOptions } from '@seedhape/sdk';
+
+async function createOrder(opts: CreateOrderOptions) {
+  const res = await fetch('/api/create-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts),
+  });
+  if (!res.ok) throw new Error('Order creation failed');
+  return res.json();
+}
+
+export default function App() {
+  return (
+    <html lang="en">
+      <body>
+        <SeedhaPeProvider onCreateOrder={createOrder}>
+          <Outlet />
+        </SeedhaPeProvider>
+      </body>
+    </html>
+  );
+}
+
+// ── app/routes/api.create-order.ts ──────────────────────────────────────────
+// import { json } from '@remix-run/node';
+// import { SeedhaPe } from '@seedhape/sdk';
+// const sp = new SeedhaPe({ apiKey: process.env.SEEDHAPE_API_KEY!, baseUrl: process.env.SEEDHAPE_BASE_URL });
+// export async function action({ request }) {
+//   const order = await sp.createOrder(await request.json());
+//   return json(order);
+// }`,
 
   reactPaymentButton: `import { PaymentButton } from '@seedhape/react';
 
@@ -159,11 +246,9 @@ export default function CustomCheckout({ orderId }: { orderId: string }) {
 }`,
 
   nextjsFullExample: `// app/api/checkout/route.ts  — server-side order creation
-import { SeedhaPe } from '@seedhape/sdk';
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-
-const sp = new SeedhaPe({ apiKey: process.env.SEEDHAPE_API_KEY! });
+import { createOrder } from '@/lib/seedhape'; // your server utility
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -171,7 +256,7 @@ export async function POST(req: Request) {
 
   const { amount, description } = await req.json();
 
-  const order = await sp.createOrder({
+  const order = await createOrder({
     amount,
     description,
     externalOrderId: \`\${userId}_\${Date.now()}\`,
@@ -852,8 +937,8 @@ export default function MerchantDocsPage() {
           <CodeBlock title="client — checkout.ts" code={snippets.sdkBrowserModal} />
 
           <Callout type="tip">
-            With the browser modal (Option B), pass a client-safe public key or proxy the order creation
-            through your backend API route. Never ship <Badge>sp_live_</Badge> keys to the browser.
+            With the browser modal (Option B), order creation must always happen on your server. Pass
+            only the resulting <code>orderId</code> to the client — never ship <Badge>sp_live_</Badge> keys to the browser.
           </Callout>
 
           <H3>Poll order status</H3>
@@ -870,11 +955,24 @@ export default function MerchantDocsPage() {
 
           <H3 id="react-provider">SeedhaPeProvider</H3>
           <P>
-            Wrap your app (or just the checkout subtree) with the provider. Pass an{' '}
-            <code>onCreateOrder</code> callback that calls your server — your secret API key
+            <strong>Required for all three components</strong> — <code>PaymentButton</code>,{' '}
+            <code>PaymentModal</code>, and <code>usePayment</code> all call{' '}
+            <code>useSeedhaPeContext()</code> internally and will throw if no provider is present.
+            Wrap your app (or just the checkout subtree) once.
+          </P>
+          <P>
+            Pass an <code>onCreateOrder</code> callback that calls your server — your API key
             stays on the server and is never bundled into client-side JavaScript.
           </P>
+
+          <H3>Next.js App Router (server actions)</H3>
           <CodeBlock title="app/layout.tsx" code={snippets.reactProviderSetup} />
+
+          <H3>Vite / Create React App (SPA + separate backend)</H3>
+          <CodeBlock title="src/main.tsx" code={snippets.reactProviderVite} />
+
+          <H3>Remix</H3>
+          <CodeBlock title="app/root.tsx" code={snippets.reactProviderRemix} />
 
           <div className="border border-gray-100 rounded-xl overflow-hidden mb-6 divide-y divide-gray-100">
             <Prop name="onCreateOrder" type="(opts: CreateOrderOptions) => Promise<OrderData>" required>
@@ -882,9 +980,18 @@ export default function MerchantDocsPage() {
               fetch to your own backend endpoint. Your SeedhaPe API key must only live here —
               never in client-side code.
             </Prop>
+            <Prop name="baseUrl" type="string">
+              Override the SeedhaPe API base URL. Defaults to{' '}
+              <code>https://api.seedhape.com</code>. Set via{' '}
+              <code>SEEDHAPE_BASE_URL</code> for self-hosted deployments.
+            </Prop>
           </div>
 
           <H3 id="react-button">PaymentButton</H3>
+          <Callout type="important">
+            Requires <code>{'<SeedhaPeProvider>'}</code> to be present in the component tree.
+            See <a href="#react-provider" className="underline underline-offset-2 text-brand-700">SeedhaPeProvider setup</a> above.
+          </Callout>
           <P>
             The simplest integration — a button that creates an order and opens the payment modal
             in one click. No manual order creation needed.
@@ -918,6 +1025,13 @@ export default function MerchantDocsPage() {
           </div>
 
           <H3 id="react-modal">PaymentModal (manual control)</H3>
+          <Callout type="important">
+            Requires{' '}
+            <code>{'<SeedhaPeProvider>'}</code> to be present in the component tree.{' '}
+            <a href="#react-provider" className="underline underline-offset-2">
+              See SeedhaPeProvider setup above.
+            </a>
+          </Callout>
           <P>
             Use <code className="text-brand-700 bg-brand-50 px-1 rounded text-xs">PaymentModal</code> directly
             when you need to create the order yourself (e.g. server-side) and control when the modal opens.
@@ -925,9 +1039,9 @@ export default function MerchantDocsPage() {
           <CodeBlock title="components/custom-checkout.tsx" code={snippets.reactPaymentModal} />
 
           <Callout type="tip">
-            The modal has a built-in 2-step flow: Step 1 collects the payer's name (if not already set),
-            Step 2 shows the QR code. If you pass <code>expectedSenderName</code> when creating the order,
-            Step 1 is skipped automatically.
+            The modal has a built-in 2-step flow: Step 1 collects the payer's name, Step 2 shows the QR
+            code. If you pass <code>expectedSenderName</code> when creating the order, Step 1 is
+            pre-filled with that name — the customer can confirm or correct it before proceeding.
           </Callout>
 
           <Divider />

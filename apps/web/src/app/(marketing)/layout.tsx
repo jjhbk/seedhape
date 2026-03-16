@@ -56,7 +56,7 @@ function Footer() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
-          <p>© 2025 SeedhaPe. Built for Indian digital merchants.</p>
+          <p>© 2026 SeedhaPe. Built for Indian digital merchants.</p>
           <p>UPI · No transaction fees · Direct bank transfers</p>
         </div>
       </div>

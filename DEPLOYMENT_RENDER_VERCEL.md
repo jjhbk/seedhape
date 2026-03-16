@@ -207,5 +207,3 @@ This is what enables pricing plan auto-activation after `order.verified`.
 3. Set Render/Vercel alerts for downtime and error spikes.
 4. Restrict API keys using `Allowed Domain` in merchant settings.
 5. Keep DB backups enabled and test restore once.
-
-ok done

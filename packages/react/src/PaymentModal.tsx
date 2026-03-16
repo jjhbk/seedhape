@@ -105,6 +105,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   const [disputeUploading, setDisputeUploading] = useState(false);
   const [disputeDone, setDisputeDone]       = useState(false);
   const [secondsLeft, setSecondsLeft]       = useState<number | null>(null);
+  const [timerExpired, setTimerExpired]     = useState(false);
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -118,6 +119,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     setDisputeUploading(false);
     setDisputeDone(false);
     setSecondsLeft(null);
+    setTimerExpired(false);
     fetchOrder();
     return () => {
       if (pollRef.current)  clearInterval(pollRef.current);
@@ -166,6 +168,10 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     const tick = () => {
       const secs = Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000));
       setSecondsLeft(secs);
+      if (secs === 0) {
+        setTimerExpired(true);
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      }
     };
     tick();
     timerRef.current = setInterval(tick, 1000);
@@ -223,6 +229,10 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
   const isTerminal = order && TERMINAL.includes(order.status);
   const isSuccess  = order?.status === 'VERIFIED' || order?.status === 'RESOLVED';
   const isDispute  = order?.status === 'EXPIRED'  || order?.status === 'DISPUTED';
+  // Show dispute UI as soon as client timer hits 0, even before the server poll confirms EXPIRED.
+  // Polling continues — if the server comes back VERIFIED, isSuccess wins and dispute UI hides.
+  const showDisputeUI   = isDispute || (timerExpired && !isSuccess);
+  const isExpiredBanner = timerExpired ? order?.status !== 'DISPUTED' : order?.status === 'EXPIRED';
 
   /* ─── Spinner helper ─── */
   const Spinner = ({ size = 18, light = false }: { size?: number; light?: boolean }) => (
@@ -266,8 +276,8 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
         }}
       >
 
-        {/* ── Green header — only for active payment states ── */}
-        {order && !isTerminal && (
+        {/* ── Green header — only while payment is active (not after timer expires) ── */}
+        {order && !isTerminal && !timerExpired && (
           <div style={{
             background: 'linear-gradient(135deg, #14532d 0%, #16a34a 60%, #22c55e 100%)',
             padding: '22px 24px 20px',
@@ -373,25 +383,25 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
             </div>
           )}
 
-          {/* ── Expired / Disputed ── */}
-          {isDispute && (
+          {/* ── Expired / Disputed — shown immediately when client timer hits 0 ── */}
+          {showDisputeUI && (
             <div>
               {/* Status banner */}
               <div style={{
                 display: 'flex', gap: 12, alignItems: 'flex-start',
-                background: order!.status === 'EXPIRED' ? '#fef2f2' : '#fffbeb',
-                border: `1.5px solid ${order!.status === 'EXPIRED' ? '#fecaca' : '#fde68a'}`,
+                background: isExpiredBanner ? '#fef2f2' : '#fffbeb',
+                border: `1.5px solid ${isExpiredBanner ? '#fecaca' : '#fde68a'}`,
                 borderRadius: 16, padding: '14px 16px', marginBottom: 18,
               }}>
                 <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>
-                  {order!.status === 'EXPIRED' ? '⏰' : '🔍'}
+                  {isExpiredBanner ? '⏰' : '🔍'}
                 </span>
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: order!.status === 'EXPIRED' ? '#dc2626' : '#92400e', margin: '0 0 3px' }}>
-                    {order!.status === 'EXPIRED' ? 'Payment Link Expired' : 'Under Review'}
+                  <p style={{ fontSize: 15, fontWeight: 700, color: isExpiredBanner ? '#dc2626' : '#92400e', margin: '0 0 3px' }}>
+                    {isExpiredBanner ? 'Payment Link Expired' : 'Under Review'}
                   </p>
                   <p style={{ fontSize: 12, color: '#6b7280', margin: 0, lineHeight: 1.6 }}>
-                    {order!.status === 'EXPIRED'
+                    {isExpiredBanner
                       ? 'Already paid? Upload your payment screenshot to raise a dispute.'
                       : 'Your screenshot was submitted. Upload another if needed.'}
                   </p>
@@ -505,7 +515,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
           )}
 
           {/* ── Step 1: Name gate ── */}
-          {order && !isTerminal && !nameConfirmed && (
+          {order && !isTerminal && !nameConfirmed && !timerExpired && (
             <div>
               <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: '0 0 5px' }}>
                 Confirm your UPI name
@@ -571,7 +581,7 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
           )}
 
           {/* ── Step 2: QR ── */}
-          {order && !isTerminal && nameConfirmed && (
+          {order && !isTerminal && nameConfirmed && !timerExpired && (
             <div style={{ textAlign: 'center' }}>
               {/* QR frame */}
               <div style={{
@@ -637,8 +647,8 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
           )}
         </div>
 
-        {/* ── Do-not-close warning — only while payment is active ── */}
-        {order && !isTerminal && (
+        {/* ── Do-not-close warning — only while payment is active (not after timer expires) ── */}
+        {order && !isTerminal && !timerExpired && (
           <div style={{
             margin: '0 16px 4px',
             display: 'flex', alignItems: 'center', gap: 8,

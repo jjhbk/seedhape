@@ -337,11 +337,23 @@ export class SeedhaPe {
     const F    = "'DM Sans',system-ui,-apple-system,sans-serif";
 
     let secondsLeft = initialSeconds ?? Math.max(0, Math.round((new Date(order.expiresAt).getTime() - Date.now()) / 1000));
+    let timerFired = false;
     this.renderHeader(card, order, secondsLeft);
+
+    // pollTimer is declared here so the timer callback can clear it on early expiry.
+    // eslint-disable-next-line prefer-const
+    let pollTimer: ReturnType<typeof setInterval>;
+
     const timerInterval = setInterval(() => {
       secondsLeft = Math.max(0, Math.round((new Date(order.expiresAt).getTime() - Date.now()) / 1000));
       this.renderHeader(card, order, secondsLeft);
-      if (secondsLeft === 0) clearInterval(timerInterval);
+      if (secondsLeft === 0 && !timerFired) {
+        timerFired = true;
+        clearInterval(timerInterval);
+        clearInterval(pollTimer);
+        // Show dispute UI immediately; onExpired fires only when server confirms.
+        this.renderDisputeEarly(card, order, options, resolve, cleanup);
+      }
     }, 1000);
 
     const content = card.querySelector('#sp-content') as HTMLElement;
@@ -378,7 +390,7 @@ export class SeedhaPe {
       </div>
     `;
 
-    const pollTimer = setInterval(async () => {
+    pollTimer = setInterval(async () => {
       try {
         const res = await fetch(`${this.baseUrl}/v1/pay/${order.id}`);
         if (!res.ok) return;
@@ -386,6 +398,57 @@ export class SeedhaPe {
         if (TERMINAL_STATUSES.includes(updated.status as (typeof TERMINAL_STATUSES)[number])) {
           clearInterval(pollTimer);
           clearInterval(timerInterval);
+          this.renderTerminal(card, updated, options, resolve, cleanup);
+        }
+      } catch { /* ignore */ }
+    }, POLL_INTERVAL_MS);
+  }
+
+  private renderDisputeEarly(
+    card: HTMLElement,
+    order: OrderData,
+    options: ShowPaymentOptions,
+    resolve: (result: PaymentResult) => void,
+    cleanup: () => void,
+  ) {
+    const F    = "'DM Sans',system-ui,-apple-system,sans-serif";
+    const MONO = "'DM Mono','SF Mono','Courier New',monospace";
+
+    // Hide the green header — timer is up.
+    const header = card.querySelector('#sp-header') as HTMLElement;
+    if (header) header.style.display = 'none';
+
+    const body = card.querySelector('#sp-content')!.parentElement!;
+    body.style.cssText = 'padding:24px 24px 8px;';
+
+    const content = card.querySelector('#sp-content')!;
+    (content as HTMLElement).style.cssText = 'text-align:left;';
+    content.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:flex-start;background:#fef2f2;border:1.5px solid #fecaca;border-radius:16px;padding:14px 16px;margin-bottom:18px;">
+        <span style="font-size:26px;line-height:1;flex-shrink:0;">⏰</span>
+        <div>
+          <p style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 3px;font-family:${F};">Payment Link Expired</p>
+          <p style="font-size:12px;color:#6b7280;margin:0;line-height:1.6;font-family:${F};">Already paid? Upload your payment screenshot to raise a dispute.</p>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border-radius:12px;padding:12px 16px;margin-bottom:18px;border:1px solid #f3f4f6;">
+        <span style="font-size:13px;color:#6b7280;font-weight:500;font-family:${F};">Order amount</span>
+        <span style="font-size:20px;font-weight:700;color:#111827;font-family:${MONO};">₹${(order.amount / 100).toFixed(2)}</span>
+      </div>
+      <div id="sp-dispute-zone"></div>
+    `;
+
+    // Re-use the same uploader; onExpired will be called by renderTerminal when server confirms.
+    this.attachDisputeUploader(card, order.id);
+
+    // Start a final poll so we can still call onExpired / onSuccess when server confirms.
+    const finalPoll = setInterval(async () => {
+      try {
+        const res = await fetch(`${this.baseUrl}/v1/pay/${order.id}`);
+        if (!res.ok) return;
+        const updated = await res.json() as OrderData;
+        if (TERMINAL_STATUSES.includes(updated.status as (typeof TERMINAL_STATUSES)[number])) {
+          clearInterval(finalPoll);
           this.renderTerminal(card, updated, options, resolve, cleanup);
         }
       } catch { /* ignore */ }

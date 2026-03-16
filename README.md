@@ -101,7 +101,7 @@ seedhape/
 │   │       ├── (dashboard)/    # Merchant dashboard (Clerk-protected)
 │   │       └── (payment)/      # Hosted payment page /pay/[orderId]
 │   │
-│   └── mobile/                 # React Native 0.76
+│   └── mobileapp/              # React Native 0.84
 │       ├── src/
 │       │   ├── screens/        # HomeScreen, TransactionsScreen, etc.
 │       │   └── services/       # api.ts, notification-bridge.ts
@@ -233,11 +233,11 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 API_BASE_URL=http://localhost:3001
 ```
 
-### `apps/mobile/.env`
+### `apps/mobileapp/.env`
 
 ```env
-EXPO_PUBLIC_API_URL=http://10.0.2.2:3001   # Android emulator → localhost
-EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+SEEDHAPE_API_URL=http://10.0.2.2:3001   # Android emulator → localhost
+CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
 > **Note**: On a real Android device replace `10.0.2.2` with your machine's LAN IP (e.g. `192.168.1.100`).
@@ -698,7 +698,7 @@ UPI payment notifications only appear on devices with real UPI apps installed (P
 **1. Build the Android app**
 
 ```bash
-cd apps/mobile
+cd apps/mobileapp
 pnpm android        # builds and installs on connected device/emulator
 ```
 
