@@ -3,7 +3,7 @@ import { and, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import type { ParsedNotification } from '@seedhape/shared';
 
 import { db } from '../db/index.js';
-import { orders, transactions, merchants } from '../db/schema/index.js';
+import { orders, transactions, merchants, paymentLinks } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
 import { enqueueWebhook } from '../queues/webhook.js';
 
@@ -242,6 +242,15 @@ async function verifyAndSettle(
     .update(merchants)
     .set({ monthlyTxCount: sql`monthly_tx_count + 1` })
     .where(eq(merchants.id, merchantId));
+
+  // If order came from a payment link, increment its totalCollected
+  const linkId = (order.metadata as { linkId?: string } | null)?.linkId;
+  if (linkId) {
+    await db
+      .update(paymentLinks)
+      .set({ totalCollected: sql`${paymentLinks.totalCollected} + ${order.originalAmount}` })
+      .where(eq(paymentLinks.id, linkId));
+  }
 
   void enqueueWebhook({ orderId, event: 'order.verified' });
 

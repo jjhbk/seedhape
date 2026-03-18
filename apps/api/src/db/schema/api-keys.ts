@@ -20,6 +20,7 @@ export const apiKeys = pgTable(
       .references(() => merchants.id, { onDelete: 'cascade' }),
     keyHash: varchar('key_hash', { length: 64 }).notNull(), // SHA-256 hex
     keyPrefix: varchar('key_prefix', { length: 20 }).notNull(), // sp_live_ or sp_test_
+    keySuffix: varchar('key_suffix', { length: 8 }).notNull().default(''), // last 4 chars of raw key
     environment: environmentEnum('environment').notNull(),
     name: varchar('name', { length: 100 }).default('Default'),
     isActive: boolean('is_active').notNull().default(true),

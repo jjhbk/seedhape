@@ -18,3 +18,7 @@ export function generateWebhookSecret(): string {
 export function generateShortId(): string {
   return nanoidShort();
 }
+
+export function generatePaymentLinkId(): string {
+  return `sp_lnk_${nanoid()}`;
+}

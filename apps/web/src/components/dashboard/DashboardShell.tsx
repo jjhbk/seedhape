@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { UserButton } from '@clerk/nextjs';
+import { usePathname, useRouter } from 'next/navigation';
+import { UserButton, useClerk } from '@clerk/nextjs';
 import {
   LayoutDashboard,
   List,
@@ -14,12 +14,15 @@ import {
   X,
   Sparkles,
   BookOpen,
+  Link2,
+  LogOut,
 } from 'lucide-react';
 import { SeedhaPeLogo } from '@/components/brand/SeedhaPeLogo';
 
 const nav = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/transactions', label: 'Transactions', icon: List, exact: false },
+  { href: '/dashboard/links', label: 'Payment Links', icon: Link2, exact: false },
   { href: '/dashboard/disputes', label: 'Disputes', icon: AlertTriangle, exact: false },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart2, exact: false },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, exact: false },
@@ -58,6 +61,8 @@ function NavItem({
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { signOut } = useClerk();
 
   useEffect(() => setSidebarOpen(false), [pathname]);
 
@@ -145,12 +150,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex items-center gap-3 px-3 py-2.5">
             <UserButton />
-            <Link
-              href="/"
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors truncate"
+            <button
+              onClick={() => void signOut(() => router.push('/'))}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-600 transition-colors"
             >
-              ← Back to site
-            </Link>
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </button>
           </div>
         </div>
       </aside>

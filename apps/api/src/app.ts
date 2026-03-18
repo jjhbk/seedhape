@@ -8,6 +8,7 @@ import { ordersRouter } from './routes/orders.js';
 import { internalRouter } from './routes/internal.js';
 import { merchantRouter } from './routes/merchant.js';
 import { payRouter } from './routes/pay.js';
+import { linksRouter } from './routes/links.js';
 import { syncRouter } from './routes/sync.js';
 import { billingWebhookRouter } from './routes/billing-webhooks.js';
 import { logger } from './lib/logger.js';
@@ -48,6 +49,7 @@ export function createApp() {
   app.use('/v1/orders', ordersRouter);
   app.use('/v1/merchant', merchantRouter);
   app.use('/v1/pay', payRouter);
+  app.use('/v1/links', linksRouter);
   app.use('/v1/billing/webhooks', billingWebhookRouter);
   app.use('/internal', internalRouter);
   app.use('/internal', syncRouter);

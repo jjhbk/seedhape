@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import multer from 'multer';
 import { put } from '@vercel/blob';
 import { z } from 'zod';
 
+import { InitiateLinkSchema } from '@seedhape/shared';
+
 import { db } from '../db/index.js';
-import { orders, disputes, merchants } from '../db/schema/index.js';
-import { getOrderByIdPublic } from '../services/orders.js';
+import { orders, disputes, merchants, paymentLinks } from '../db/schema/index.js';
+import { getOrderByIdPublic, createOrder } from '../services/orders.js';
 import { AppError } from '../middleware/error-handler.js';
 
 const router = Router();
@@ -25,6 +27,129 @@ const upload = multer({
     cb(null, true);
   },
 });
+
+// ── Link routes (must come before /:orderId wildcard) ──────────────────────
+
+// GET /v1/pay/link/:linkId — public link info (no auth required)
+router.get('/link/:linkId', async (req, res, next) => {
+  try {
+    const linkId = String(req.params['linkId']);
+    const [link] = await db
+      .select()
+      .from(paymentLinks)
+      .where(eq(paymentLinks.id, linkId))
+      .limit(1);
+
+    if (!link) {
+      throw new AppError(404, 'Payment link not found', 'LINK_NOT_FOUND');
+    }
+
+    res.json({
+      id: link.id,
+      title: link.title,
+      description: link.description,
+      linkType: link.linkType,
+      amount: link.amount,
+      minAmount: link.minAmount,
+      maxAmount: link.maxAmount,
+      currency: link.currency,
+      isActive: link.isActive,
+      expiresAt: link.expiresAt?.toISOString() ?? null,
+      // Pre-set customer details (for ONE_TIME links)
+      customerName: link.customerName,
+      customerEmail: link.customerEmail,
+      customerPhone: link.customerPhone,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /v1/pay/link/:linkId/initiate — create an order from a payment link
+router.post('/link/:linkId/initiate', async (req, res, next) => {
+  try {
+    const linkId = String(req.params['linkId']);
+    const [link] = await db
+      .select()
+      .from(paymentLinks)
+      .where(eq(paymentLinks.id, linkId))
+      .limit(1);
+
+    if (!link) {
+      throw new AppError(404, 'Payment link not found', 'LINK_NOT_FOUND');
+    }
+
+    if (!link.isActive) {
+      throw new AppError(410, 'This payment link is no longer active', 'LINK_INACTIVE');
+    }
+
+    if (link.expiresAt && link.expiresAt < new Date()) {
+      throw new AppError(410, 'This payment link has expired', 'LINK_EXPIRED');
+    }
+
+    const input = InitiateLinkSchema.parse(req.body);
+
+    // Resolve customer name: link's pre-set name takes priority for ONE_TIME links
+    const resolvedCustomerName = link.customerName ?? input.customerName;
+    if (!resolvedCustomerName) {
+      throw new AppError(400, 'Customer name is required', 'CUSTOMER_NAME_REQUIRED');
+    }
+
+    // Determine the final amount
+    let finalAmount: number;
+    if (link.amount !== null) {
+      finalAmount = link.amount;
+    } else {
+      if (!input.amount) {
+        throw new AppError(400, 'This payment link requires you to enter an amount', 'AMOUNT_REQUIRED');
+      }
+      if (link.minAmount !== null && input.amount < link.minAmount) {
+        throw new AppError(400, `Amount must be at least ₹${(link.minAmount / 100).toFixed(2)}`, 'AMOUNT_TOO_LOW');
+      }
+      if (link.maxAmount !== null && input.amount > link.maxAmount) {
+        throw new AppError(400, `Amount cannot exceed ₹${(link.maxAmount / 100).toFixed(2)}`, 'AMOUNT_TOO_HIGH');
+      }
+      finalAmount = input.amount;
+    }
+
+    const { order, qrCodeDataUrl } = await createOrder(link.merchantId, {
+      amount: finalAmount,
+      description: link.title,
+      externalOrderId: link.externalOrderId ?? undefined,
+      customerEmail: link.customerEmail ?? undefined,
+      customerPhone: link.customerPhone ?? undefined,
+      metadata: {
+        linkId: link.id,
+        linkType: link.linkType,
+        customerName: resolvedCustomerName,
+        expectedSenderName: resolvedCustomerName,
+      },
+      expiresInMinutes: 30,
+      randomizeAmount: true,
+    });
+
+    // Increment usesCount and, for ONE_TIME links, deactivate immediately
+    await db
+      .update(paymentLinks)
+      .set({
+        usesCount: sql`${paymentLinks.usesCount} + 1`,
+        ...(link.linkType === 'ONE_TIME' ? { isActive: false } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(paymentLinks.id, link.id));
+
+    res.status(201).json({
+      orderId: order.id,
+      qrCode: qrCodeDataUrl,
+      upiUri: order.upiUri,
+      expiresAt: order.expiresAt.toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Order routes ───────────────────────────────────────────────────────────
 
 // GET /v1/pay/:orderId — public payment page data
 router.get('/:orderId', async (req, res, next) => {

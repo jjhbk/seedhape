@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
-import type { Request } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 
 import { Router } from 'express';
 import { eq, desc, and, count, sql } from 'drizzle-orm';
-import { clerkMiddleware, requireAuth, getAuth } from '@clerk/express';
+import { clerkMiddleware, getAuth } from '@clerk/express';
 
 import { UpdateMerchantProfileSchema } from '@seedhape/shared';
 import { generateApiKey } from '@seedhape/shared';
@@ -23,7 +23,18 @@ const router = Router();
 
 // All dashboard routes require Clerk session
 router.use(clerkMiddleware());
-router.use(requireAuth());
+
+// Manual auth guard — always returns 401 JSON, never redirects
+function requireClerkAuth(req: Request, res: Response, next: NextFunction) {
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return;
+  }
+  next();
+}
+
+router.use(requireClerkAuth);
 
 function claimAsString(claims: Record<string, unknown>, key: string): string | undefined {
   const value = claims[key];
@@ -351,6 +362,7 @@ router.get('/api-keys', async (req, res, next) => {
       .select({
         id: apiKeys.id,
         keyPrefix: apiKeys.keyPrefix,
+        keySuffix: apiKeys.keySuffix,
         environment: apiKeys.environment,
         name: apiKeys.name,
         isActive: apiKeys.isActive,
@@ -379,11 +391,13 @@ router.post('/api-keys', async (req, res, next) => {
     const rawKey = generateApiKey(environment);
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
     const keyPrefix = `sp_${environment}_`;
+    const keySuffix = rawKey.slice(-4);
 
     await db.insert(apiKeys).values({
       merchantId: merchant.id,
       keyHash,
       keyPrefix,
+      keySuffix,
       environment,
       name,
       isActive: true,

@@ -18,6 +18,7 @@ type Profile = {
 type ApiKey = {
   id: string;
   keyPrefix: string;
+  keySuffix: string;
   environment: string;
   name: string;
   isActive: boolean;
@@ -378,7 +379,7 @@ export default function SettingsPage() {
                       <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">disabled</span>
                     )}
                   </div>
-                  <p className="text-xs font-mono text-gray-400 mt-0.5">{key.keyPrefix}••••••••••••</p>
+                  <p className="text-xs font-mono text-gray-400 mt-0.5">{key.keyPrefix}••••••••••••{key.keySuffix}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     Created {new Date(key.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </p>

@@ -7,6 +7,7 @@ export * from './schemas/order.js';
 export * from './schemas/notification.js';
 export * from './schemas/merchant.js';
 export * from './schemas/webhook.js';
+export * from './schemas/payment-link.js';
 
 // Utilities
 export * from './utils/upi.js';
