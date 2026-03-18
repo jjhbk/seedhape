@@ -200,7 +200,7 @@ export default function PaymentLinkPage() {
                 max={link!.maxAmount ? link!.maxAmount / 100 : undefined}
                 step="0.01"
                 value={amountRupees}
-                onChange={(e) => { setAmountRupees(e.target.value); setFieldErrors((p) => ({ ...p, amount: undefined })); }}
+                onChange={(e) => { setAmountRupees(e.target.value); setFieldErrors(({ amount: _a, ...rest }) => rest); }}
                 placeholder={
                   link!.minAmount && link!.maxAmount
                     ? `₹${paiseToRupees(link!.minAmount)} – ₹${paiseToRupees(link!.maxAmount)}`
@@ -231,7 +231,7 @@ export default function PaymentLinkPage() {
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 value={customerName}
-                onChange={(e) => { setCustomerName(e.target.value); setFieldErrors((p) => ({ ...p, name: undefined })); }}
+                onChange={(e) => { setCustomerName(e.target.value); setFieldErrors(({ name: _n, ...rest }) => rest); }}
                 onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
                 placeholder="e.g. Rahul Sharma"
                 className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
