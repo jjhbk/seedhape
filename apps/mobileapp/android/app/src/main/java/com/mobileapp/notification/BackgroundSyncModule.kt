@@ -18,8 +18,8 @@ class BackgroundSyncModule(
     fun configureAndStart(apiUrl: String, deviceId: String, merchantId: String, promise: Promise) {
         try {
             BackgroundSyncPrefs.saveConfig(reactContext, apiUrl, deviceId, merchantId)
-            SeedhaPeHeartbeatService.start(reactContext)
             BackgroundSyncNetwork.sendHeartbeat(reactContext)
+            SeedhaPeNotificationService.instance?.startHeartbeatIfConfigured()
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("BG_SYNC_START_FAILED", e)
@@ -29,7 +29,7 @@ class BackgroundSyncModule(
     @ReactMethod
     fun stop(promise: Promise) {
         try {
-            SeedhaPeHeartbeatService.stop(reactContext)
+            SeedhaPeNotificationService.instance?.stopHeartbeat()
             BackgroundSyncPrefs.clearConfig(reactContext)
             promise.resolve(true)
         } catch (e: Exception) {
@@ -55,8 +55,8 @@ class BackgroundSyncModule(
                     BackgroundSyncPrefs.getMerchantId(reactContext) != null
 
             if (configured) {
-                SeedhaPeHeartbeatService.start(reactContext)
                 BackgroundSyncNetwork.sendHeartbeat(reactContext)
+                SeedhaPeNotificationService.instance?.startHeartbeatIfConfigured()
             }
             promise.resolve(configured)
         } catch (e: Exception) {

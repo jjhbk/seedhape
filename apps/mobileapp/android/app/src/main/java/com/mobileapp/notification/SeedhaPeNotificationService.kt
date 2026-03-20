@@ -1,17 +1,28 @@
 package com.mobileapp.notification
 
-import android.service.notification.NotificationListenerService
-import android.service.notification.StatusBarNotification
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
 import com.facebook.react.bridge.Arguments
+import com.mobileapp.MainActivity
 import java.time.Instant
 import java.util.Locale
 
 /**
  * Listens for status bar notifications from UPI apps.
  * Parses payment details and forwards to React Native via the bridge.
+ * Also runs periodic heartbeats to keep the merchant online.
  */
 class SeedhaPeNotificationService : NotificationListenerService() {
     private val toneGenerator by lazy {
@@ -19,6 +30,15 @@ class SeedhaPeNotificationService : NotificationListenerService() {
     }
     private var textToSpeech: TextToSpeech? = null
     private var ttsReady: Boolean = false
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val heartbeatTask = object : Runnable {
+        override fun run() {
+            BackgroundSyncNetwork.sendHeartbeat(this@SeedhaPeNotificationService)
+            updateAlertsAndNotification()
+            handler.postDelayed(this, HEARTBEAT_INTERVAL_MS)
+        }
+    }
 
     // UPI app packages we monitor
     private val upiPackages = setOf(
@@ -83,9 +103,24 @@ class SeedhaPeNotificationService : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         initTextToSpeech()
+        createNotificationChannels()
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        instance = this
+        startHeartbeatIfConfigured()
+    }
+
+    override fun onListenerDisconnected() {
+        stopHeartbeat()
+        instance = null
+        super.onListenerDisconnected()
     }
 
     override fun onDestroy() {
+        stopHeartbeat()
+        instance = null
         runCatching { textToSpeech?.stop() }
         runCatching { textToSpeech?.shutdown() }
         textToSpeech = null
@@ -93,6 +128,84 @@ class SeedhaPeNotificationService : NotificationListenerService() {
         runCatching { toneGenerator.release() }
         super.onDestroy()
     }
+
+    // ── Heartbeat ────────────────────────────────────────────────────────────────
+
+    fun startHeartbeatIfConfigured() {
+        val configured =
+            BackgroundSyncPrefs.getApiUrl(this) != null &&
+                BackgroundSyncPrefs.getDeviceId(this) != null &&
+                BackgroundSyncPrefs.getMerchantId(this) != null
+        if (!configured) return
+
+        handler.removeCallbacks(heartbeatTask)
+        handler.post(heartbeatTask)
+    }
+
+    fun stopHeartbeat() {
+        handler.removeCallbacks(heartbeatTask)
+    }
+
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(
+            NotificationChannel(
+                ALERTS_CHANNEL_ID,
+                "seedhape activity alerts",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+        )
+    }
+
+    private fun updateAlertsAndNotification() {
+        val snapshot = BackgroundSyncNetwork.fetchAlertSnapshot(this) ?: return
+        val previousTx = BackgroundSyncPrefs.getLastTxCount(this)
+        val previousDisputes = BackgroundSyncPrefs.getLastDisputeCount(this)
+
+        val hasPrev = previousTx >= 0 && previousDisputes >= 0
+        val newTx = if (hasPrev) (snapshot.totalTransactions - previousTx).coerceAtLeast(0) else 0
+        val newDisputes = if (hasPrev) (snapshot.totalDisputedOrders - previousDisputes).coerceAtLeast(0) else 0
+
+        if (newTx > 0 || newDisputes > 0) {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(ALERT_NOTIFICATION_ID, buildAlertNotification(newTx, newDisputes))
+        }
+
+        BackgroundSyncPrefs.saveLastCounts(
+            context = this,
+            txCount = snapshot.totalTransactions,
+            disputeCount = snapshot.totalDisputedOrders
+        )
+    }
+
+    private fun buildAlertNotification(newTx: Int, newDisputes: Int): Notification {
+        val openAppIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            1,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, ALERTS_CHANNEL_ID)
+        } else {
+            Notification.Builder(this)
+        }
+
+        return builder
+            .setContentTitle("seedhape updates")
+            .setContentText("+$newTx transactions, +$newDisputes disputes")
+            .setSmallIcon(android.R.drawable.stat_notify_more)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+    }
+
+    // ── TTS & audio ──────────────────────────────────────────────────────────────
 
     private fun initTextToSpeech() {
         textToSpeech = TextToSpeech(applicationContext) { status ->
@@ -167,8 +280,16 @@ class SeedhaPeNotificationService : NotificationListenerService() {
     }
 
     companion object {
+        private const val ALERTS_CHANNEL_ID = "seedhape_alerts_channel"
+        private const val ALERT_NOTIFICATION_ID = 3812
+        private const val HEARTBEAT_INTERVAL_MS = 50_000L
         private const val ANNOUNCEMENT_THROTTLE_MS = 2000L
+
         @Volatile
         private var lastAnnouncementAtMs: Long = 0
+
+        @Volatile
+        var instance: SeedhaPeNotificationService? = null
+            private set
     }
 }

@@ -54,3 +54,5 @@ apps/mobileapp/src/config.generated.ts
 
 # Drizzle migrations (API)
 apps/api/src/db/migrations/
+
+/playstoreassets
