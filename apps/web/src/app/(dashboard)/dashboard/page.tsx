@@ -38,22 +38,22 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/40 p-6">
-        <div className="flex items-center justify-between">
-        <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {profile?.businessName || 'Dashboard'}
+              {profile?.businessName || 'Dashboard'}
             </h1>
-            <p className="text-slate-500 text-sm mt-1">{profile?.email}</p>
+            <p className="text-slate-500 text-sm mt-1 truncate">{profile?.email}</p>
+          </div>
+          <div className={`inline-flex w-fit items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusColor}`}>
+            <Activity className="h-3.5 w-3.5" />
+            {profile?.status ?? 'UNKNOWN'}
+          </div>
         </div>
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusColor}`}>
-          <Activity className="h-3.5 w-3.5" />
-          {profile?.status ?? 'UNKNOWN'}
-        </div>
-      </div>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
             label: 'Total Orders',

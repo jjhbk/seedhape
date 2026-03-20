@@ -48,7 +48,7 @@ export default async function LinksPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Payment Links</h1>
         <LinksClient />
       </div>
@@ -59,8 +59,42 @@ export default async function LinksPage() {
           <p className="text-sm text-gray-400">Create a link to start accepting payments without a website.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {data.map((link) => (
+              <div key={link.id} className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{link.title}</p>
+                    {link.description && (
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{link.description}</p>
+                    )}
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${link.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {link.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p className="text-gray-500">Amount</p>
+                  <p className="text-gray-700 text-right font-medium">{amountLabel(link)}</p>
+                  <p className="text-gray-500">Uses</p>
+                  <p className="text-gray-700 text-right">{link.usesCount}</p>
+                  <p className="text-gray-500">Collected</p>
+                  <p className="text-gray-700 text-right">₹{paiseToRupees(link.totalCollected)}</p>
+                </div>
+                <LinkRowActions
+                  url={link.shareUrl}
+                  title={link.title}
+                  linkId={link.id}
+                  isActive={link.isActive}
+                  linkType={link.linkType}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-x-auto">
+          <table className="w-full text-sm min-w-[860px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">Title</th>
@@ -109,7 +143,8 @@ export default async function LinksPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

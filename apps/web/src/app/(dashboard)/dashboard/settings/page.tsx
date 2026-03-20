@@ -216,7 +216,7 @@ export default function SettingsPage() {
           {/* Webhook URL + inline test */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Webhook URL</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="url"
                 value={profile.webhookUrl ?? ''}
@@ -228,7 +228,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={testWebhook}
                 disabled={webhookTest.state === 'loading' || !profile.webhookUrl}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-w-[72px] justify-center"
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-w-[72px] justify-center w-full sm:w-auto"
               >
                 {webhookTest.state === 'loading' ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -266,7 +266,7 @@ export default function SettingsPage() {
                 </span>
               </div>
             ) : null}
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type={showWebhookSecret ? 'text' : 'password'}
                 value={profile.webhookSecret ?? ''}
@@ -277,7 +277,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowWebhookSecret((v) => !v)}
-                className="inline-flex items-center justify-center w-10 border border-slate-200 rounded-xl hover:bg-slate-50"
+                className="inline-flex items-center justify-center h-10 w-full sm:w-10 border border-slate-200 rounded-xl hover:bg-slate-50"
                 aria-label={showWebhookSecret ? 'Hide webhook secret' : 'Show webhook secret'}
               >
                 {showWebhookSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -291,7 +291,7 @@ export default function SettingsPage() {
                   setProfile({ ...profile, webhookSecret: secret });
                   setShowWebhookSecret(true);
                 }}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-1.5 text-sm px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 whitespace-nowrap w-full sm:w-auto"
               >
                 Generate
               </button>
@@ -302,7 +302,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             type="submit"
             disabled={saving}
@@ -326,7 +326,7 @@ export default function SettingsPage() {
 
       {/* API Keys */}
       <div className="bg-white rounded-2xl border border-emerald-100/70 p-6 shadow-sm shadow-emerald-100/50">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div>
             <h2 className="font-semibold text-slate-900">API Keys</h2>
             <p className="text-xs text-gray-400 mt-0.5">Use these keys in the SeedhaPe SDK or REST API.</p>
@@ -351,13 +351,13 @@ export default function SettingsPage() {
             <p className="text-sm font-medium text-green-800 mb-2">
               Save this key — it won&apos;t be shown again!
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <code className="flex-1 bg-white border border-green-200 rounded px-3 py-2 text-sm font-mono break-all">
                 {newKey}
               </code>
               <button
                 onClick={() => copyKey(newKey)}
-                className="p-2 text-green-700 hover:bg-green-100 rounded"
+                className="inline-flex items-center justify-center p-2 text-green-700 hover:bg-green-100 rounded border border-green-200 sm:border-0"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </button>
@@ -368,7 +368,7 @@ export default function SettingsPage() {
         {apiKeys.length > 0 ? (
           <div className="divide-y divide-gray-100">
             {apiKeys.map((key) => (
-              <div key={key.id} className={`py-3 flex items-center justify-between gap-3 ${!key.isActive ? 'opacity-60' : ''}`}>
+              <div key={key.id} className={`py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${!key.isActive ? 'opacity-60' : ''}`}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-slate-800">{key.name}</span>
@@ -384,7 +384,7 @@ export default function SettingsPage() {
                     Created {new Date(key.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 self-start sm:self-auto">
                   <button
                     onClick={() => toggleApiKey(key.id, key.isActive)}
                     title={key.isActive ? 'Disable key' : 'Enable key'}

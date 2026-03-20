@@ -79,7 +79,7 @@ export function LinkRowActions({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       <button
         onClick={handleCopy}
         title="Copy link"

@@ -55,12 +55,12 @@ export default async function AnalyticsPage() {
       {/* Savings hero card */}
       <div className="bg-gradient-to-br from-brand-600 to-brand-700 rounded-2xl p-6 text-white mb-6">
         <p className="text-brand-100 text-sm font-medium mb-1">Estimated fees saved vs. Razorpay (2%)</p>
-        <p className="text-4xl font-bold mb-1">₹{paiseToRupees(savedFees)}</p>
+        <p className="text-3xl sm:text-4xl font-bold mb-1 break-words">₹{paiseToRupees(savedFees)}</p>
         <p className="text-brand-200 text-sm">on ₹{paiseToRupees(totalVerifiedPaise)} verified payments</p>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           {
             label: 'Total Orders',

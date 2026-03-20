@@ -10,7 +10,9 @@ import {
   Alert,
   Share,
   RefreshControl,
+  Platform,
 } from 'react-native';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 
 import { C } from '../theme';
 import {
@@ -29,6 +31,25 @@ function toPaise(raw: string): number | undefined {
   return Math.round(value * 100);
 }
 
+function pad2(v: number): string {
+  return String(v).padStart(2, '0');
+}
+
+function formatDateValue(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function formatTimeValue(date: Date): string {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function parseExpiryParts(datePart: string, timePart: string): Date | null {
+  if (!datePart.trim() || !timePart.trim()) return null;
+  const dt = new Date(`${datePart.trim()}T${timePart.trim()}:00`);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt;
+}
+
 export default function PaymentLinksScreen({ apiKey }: Props) {
   const [linkType, setLinkType] = useState<'REUSABLE' | 'ONE_TIME'>('REUSABLE');
   const [amountType, setAmountType] = useState<'fixed' | 'variable'>('fixed');
@@ -40,6 +61,8 @@ export default function PaymentLinksScreen({ apiKey }: Props) {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [expiryTime, setExpiryTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<PaymentLinkData | null>(null);
   const [links, setLinks] = useState<PaymentLinkData[]>([]);
@@ -93,6 +116,11 @@ export default function PaymentLinksScreen({ apiKey }: Props) {
       }
     }
 
+    if ((expiryDate.trim() && !expiryTime.trim()) || (!expiryDate.trim() && expiryTime.trim())) {
+      Alert.alert('Validation', 'Please enter both expiry date and time.');
+      return;
+    }
+
     const payload: CreatePaymentLinkInput = {
       linkType,
       title: titleValue,
@@ -115,6 +143,19 @@ export default function PaymentLinksScreen({ apiKey }: Props) {
       if (customerPhone.trim()) payload.customerPhone = customerPhone.trim();
     }
 
+    if (expiryDate.trim() && expiryTime.trim()) {
+      const dt = parseExpiryParts(expiryDate, expiryTime);
+      if (!dt) {
+        Alert.alert('Validation', 'Expiry date/time format is invalid.');
+        return;
+      }
+      if (dt.getTime() <= Date.now()) {
+        Alert.alert('Validation', 'Expiry must be in the future.');
+        return;
+      }
+      payload.expiresAt = dt.toISOString();
+    }
+
     try {
       setSubmitting(true);
       const link = await createPaymentLink(apiKey, payload);
@@ -126,6 +167,33 @@ export default function PaymentLinksScreen({ apiKey }: Props) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function openDatePicker() {
+    const base = parseExpiryParts(expiryDate, expiryTime) ?? new Date();
+    DateTimePickerAndroid.open({
+      mode: 'date',
+      value: base,
+      onChange: (event, selectedDate) => {
+        if (event.type !== 'set' || !selectedDate) return;
+        setExpiryDate(formatDateValue(selectedDate));
+        if (!expiryTime) setExpiryTime(formatTimeValue(selectedDate));
+      },
+    });
+  }
+
+  function openTimePicker() {
+    const base = parseExpiryParts(expiryDate, expiryTime) ?? new Date();
+    DateTimePickerAndroid.open({
+      mode: 'time',
+      value: base,
+      is24Hour: true,
+      onChange: (event, selectedDate) => {
+        if (event.type !== 'set' || !selectedDate) return;
+        setExpiryTime(formatTimeValue(selectedDate));
+        if (!expiryDate) setExpiryDate(formatDateValue(base));
+      },
+    });
   }
 
   async function handleShare() {
@@ -289,6 +357,48 @@ export default function PaymentLinksScreen({ apiKey }: Props) {
               onChangeText={setCustomerPhone}
             />
           </>
+        )}
+
+        <Text style={styles.sectionLabel}>Expiry (optional)</Text>
+        {Platform.OS === 'android' ? (
+          <View style={styles.expiryPickerRow}>
+            <TouchableOpacity style={styles.expiryPickerBtn} onPress={openDatePicker} activeOpacity={0.8}>
+              <Text style={styles.expiryPickerLabel}>Date</Text>
+              <Text style={styles.expiryPickerValue}>{expiryDate || 'Select date'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.expiryPickerBtn} onPress={openTimePicker} activeOpacity={0.8}>
+              <Text style={styles.expiryPickerLabel}>Time</Text>
+              <Text style={styles.expiryPickerValue}>{expiryTime || 'Select time'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder="Date (YYYY-MM-DD)"
+              placeholderTextColor={C.textMuted}
+              value={expiryDate}
+              onChangeText={setExpiryDate}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Time (HH:mm, 24h)"
+              placeholderTextColor={C.textMuted}
+              value={expiryTime}
+              onChangeText={setExpiryTime}
+              autoCapitalize="none"
+            />
+          </>
+        )}
+        {(expiryDate || expiryTime) && (
+          <TouchableOpacity
+            style={styles.clearExpiryBtn}
+            onPress={() => { setExpiryDate(''); setExpiryTime(''); }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.clearExpiryText}>Clear Expiry</Text>
+          </TouchableOpacity>
         )}
 
         <TouchableOpacity
@@ -494,4 +604,27 @@ const styles = StyleSheet.create({
   rowToggleText: { fontSize: 12, fontWeight: '700' },
   rowDeactivateText: { color: C.red },
   rowActivateText: { color: C.greenBright },
+  expiryPickerRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  expiryPickerBtn: {
+    flex: 1,
+    backgroundColor: C.surfaceHigh,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  expiryPickerLabel: { fontSize: 11, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase' },
+  expiryPickerValue: { fontSize: 14, color: C.text, fontWeight: '600' },
+  clearExpiryBtn: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.surfaceHigh,
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  clearExpiryText: { fontSize: 12, color: C.textSub, fontWeight: '600' },
 });
