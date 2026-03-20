@@ -189,6 +189,28 @@ router.patch('/:id', async (req, res, next) => {
     const { userId } = getAuth(req);
     const merchant = await getMerchantFromClerk(req, userId!);
     const input = UpdatePaymentLinkSchema.parse(req.body);
+    const linkId = String(req.params['id'] ?? '');
+
+    const [existing] = await db
+      .select({ id: paymentLinks.id, linkType: paymentLinks.linkType })
+      .from(paymentLinks)
+      .where(
+        and(
+          eq(paymentLinks.id, linkId),
+          eq(paymentLinks.merchantId, merchant.id),
+        ),
+      )
+      .limit(1);
+
+    if (!existing) throw new AppError(404, 'Payment link not found', 'LINK_NOT_FOUND');
+
+    if (input.isActive !== undefined && existing.linkType === 'ONE_TIME') {
+      throw new AppError(
+        400,
+        'One-time links are auto-managed and cannot be activated/deactivated manually',
+        'LINK_TYPE_LOCKED',
+      );
+    }
 
     const [updated] = await db
       .update(paymentLinks)
@@ -203,7 +225,7 @@ router.patch('/:id', async (req, res, next) => {
       })
       .where(
         and(
-          eq(paymentLinks.id, req.params['id']!),
+          eq(paymentLinks.id, linkId),
           eq(paymentLinks.merchantId, merchant.id),
         ),
       )

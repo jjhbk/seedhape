@@ -246,9 +246,14 @@ async function verifyAndSettle(
   // If order came from a payment link, increment its totalCollected
   const linkId = (order.metadata as { linkId?: string } | null)?.linkId;
   if (linkId) {
+    const linkType = (order.metadata as { linkType?: string } | null)?.linkType;
     await db
       .update(paymentLinks)
-      .set({ totalCollected: sql`${paymentLinks.totalCollected} + ${order.originalAmount}` })
+      .set({
+        totalCollected: sql`${paymentLinks.totalCollected} + ${order.originalAmount}`,
+        ...(linkType === 'ONE_TIME' ? { isActive: false } : {}),
+        updatedAt: now,
+      })
       .where(eq(paymentLinks.id, linkId));
   }
 

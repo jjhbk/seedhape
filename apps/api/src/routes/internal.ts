@@ -1,15 +1,19 @@
 import { Router } from 'express';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
   InternalNotificationPayloadSchema,
   DeviceRegistrationSchema,
   HeartbeatSchema,
+  CreatePaymentLinkSchema,
+  UpdatePaymentLinkSchema,
+  generatePaymentLinkId,
+  generateShortId,
 } from '@seedhape/shared';
 
 import { db } from '../db/index.js';
-import { merchants, deviceTokens, orders, transactions, disputes } from '../db/schema/index.js';
+import { merchants, deviceTokens, orders, transactions, disputes, paymentLinks } from '../db/schema/index.js';
 import { requireApiKey, requireDeviceToken } from '../middleware/auth.js';
 import { enqueueNotification } from '../queues/notification-processor.js';
 import { logger } from '../lib/logger.js';
@@ -17,6 +21,31 @@ import { AppError } from '../middleware/error-handler.js';
 import { applyPlanForPaidOrder, BillingPlanSchema } from '../services/billing.js';
 
 const router = Router();
+const WEB_URL = process.env['WEB_URL'] ?? 'http://localhost:3000';
+
+function formatPaymentLink(link: typeof paymentLinks.$inferSelect) {
+  return {
+    id: link.id,
+    linkType: link.linkType,
+    title: link.title,
+    description: link.description,
+    amount: link.amount,
+    minAmount: link.minAmount,
+    maxAmount: link.maxAmount,
+    currency: link.currency,
+    isActive: link.isActive,
+    expiresAt: link.expiresAt?.toISOString() ?? null,
+    externalOrderId: link.externalOrderId,
+    customerName: link.customerName,
+    customerEmail: link.customerEmail,
+    customerPhone: link.customerPhone,
+    usesCount: link.usesCount,
+    totalCollected: link.totalCollected,
+    shareUrl: `${WEB_URL}/pay/link/${link.id}`,
+    createdAt: link.createdAt.toISOString(),
+    updatedAt: link.updatedAt.toISOString(),
+  };
+}
 
 // GET /internal/device/verify — validate API key and fetch merchant summary
 router.get('/device/verify', requireApiKey, async (req, res, next) => {
@@ -128,6 +157,112 @@ router.get('/device/disputes', requireApiKey, async (req, res, next) => {
   }
 });
 
+// POST /internal/device/links — create payment link via API key (mobile app)
+router.post('/device/links', requireApiKey, async (req, res, next) => {
+  try {
+    const input = CreatePaymentLinkSchema.parse(req.body);
+    const id = generatePaymentLinkId();
+
+    const externalOrderId =
+      input.linkType === 'ONE_TIME' ? `ORD-${generateShortId().toUpperCase()}` : undefined;
+
+    await db.insert(paymentLinks).values({
+      id,
+      merchantId: req.merchantId!,
+      linkType: input.linkType,
+      title: input.title,
+      description: input.description,
+      amount: input.amount,
+      minAmount: input.minAmount,
+      maxAmount: input.maxAmount,
+      expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
+      externalOrderId,
+      customerName: input.customerName,
+      customerEmail: input.customerEmail,
+      customerPhone: input.customerPhone,
+    });
+
+    const [link] = await db.select().from(paymentLinks).where(eq(paymentLinks.id, id)).limit(1);
+    res.status(201).json(formatPaymentLink(link!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /internal/device/links — list payment links via API key (mobile app)
+router.get('/device/links', requireApiKey, async (req, res, next) => {
+  try {
+    const page = Number(req.query['page'] ?? 1);
+    const limit = Math.min(Number(req.query['limit'] ?? 20), 100);
+    const offset = (page - 1) * limit;
+
+    const rows = await db
+      .select()
+      .from(paymentLinks)
+      .where(eq(paymentLinks.merchantId, req.merchantId!))
+      .orderBy(desc(paymentLinks.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    res.json({ data: rows.map(formatPaymentLink), page, limit });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /internal/device/links/:id — update payment link via API key (mobile app)
+router.patch('/device/links/:id', requireApiKey, async (req, res, next) => {
+  try {
+    const linkId = String(req.params['id'] ?? '');
+    const input = UpdatePaymentLinkSchema.parse(req.body);
+    const [existing] = await db
+      .select({ id: paymentLinks.id, linkType: paymentLinks.linkType })
+      .from(paymentLinks)
+      .where(
+        and(
+          eq(paymentLinks.id, linkId),
+          eq(paymentLinks.merchantId, req.merchantId!),
+        ),
+      )
+      .limit(1);
+
+    if (!existing) throw new AppError(404, 'Payment link not found', 'LINK_NOT_FOUND');
+
+    if (input.isActive !== undefined && existing.linkType === 'ONE_TIME') {
+      throw new AppError(
+        400,
+        'One-time links are auto-managed and cannot be activated/deactivated manually',
+        'LINK_TYPE_LOCKED',
+      );
+    }
+
+    const [updated] = await db
+      .update(paymentLinks)
+      .set({
+        ...(input.title !== undefined && { title: input.title }),
+        ...(input.description !== undefined && { description: input.description }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
+        ...(input.expiresAt !== undefined && {
+          expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+        }),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(paymentLinks.id, linkId),
+          eq(paymentLinks.merchantId, req.merchantId!),
+        ),
+      )
+      .returning();
+
+    if (!updated) throw new AppError(404, 'Payment link not found', 'LINK_NOT_FOUND');
+
+    res.json(formatPaymentLink(updated));
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PUT /internal/device/disputes/:id — mobile app dispute resolution via API key
 router.put('/device/disputes/:id', requireApiKey, async (req, res, next) => {
   try {
@@ -172,6 +307,28 @@ router.put('/device/disputes/:id', requireApiKey, async (req, res, next) => {
         updatedAt: now,
       })
       .where(eq(orders.id, dispute.orderId));
+
+    if (resolution === 'APPROVED') {
+      const [approvedOrder] = await db
+        .select({ metadata: orders.metadata, originalAmount: orders.originalAmount })
+        .from(orders)
+        .where(eq(orders.id, dispute.orderId))
+        .limit(1);
+
+      const linkId = (approvedOrder?.metadata as { linkId?: string } | null)?.linkId;
+      const linkType = (approvedOrder?.metadata as { linkType?: string } | null)?.linkType;
+
+      if (linkId) {
+        await db
+          .update(paymentLinks)
+          .set({
+            totalCollected: sql`${paymentLinks.totalCollected} + ${approvedOrder?.originalAmount ?? 0}`,
+            ...(linkType === 'ONE_TIME' ? { isActive: false } : {}),
+            updatedAt: now,
+          })
+          .where(eq(paymentLinks.id, linkId));
+      }
+    }
 
     const { enqueueWebhook } = await import('../queues/webhook.js');
     void enqueueWebhook({

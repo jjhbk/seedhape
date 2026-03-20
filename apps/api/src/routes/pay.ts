@@ -128,12 +128,11 @@ router.post('/link/:linkId/initiate', async (req, res, next) => {
       randomizeAmount: true,
     });
 
-    // Increment usesCount and, for ONE_TIME links, deactivate immediately
+    // Increment usesCount on every initiate
     await db
       .update(paymentLinks)
       .set({
         usesCount: sql`${paymentLinks.usesCount} + 1`,
-        ...(link.linkType === 'ONE_TIME' ? { isActive: false } : {}),
         updatedAt: new Date(),
       })
       .where(eq(paymentLinks.id, link.id));

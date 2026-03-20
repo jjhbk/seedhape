@@ -166,3 +166,84 @@ export async function resolveDispute(
   }
   return res.json();
 }
+
+export type CreatePaymentLinkInput = {
+  linkType: 'REUSABLE' | 'ONE_TIME';
+  title: string;
+  description?: string;
+  amount?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  expiresAt?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+};
+
+export type PaymentLinkData = {
+  id: string;
+  linkType: 'REUSABLE' | 'ONE_TIME';
+  title: string;
+  description: string | null;
+  amount: number | null;
+  minAmount: number | null;
+  maxAmount: number | null;
+  isActive: boolean;
+  externalOrderId: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  usesCount: number;
+  totalCollected: number;
+  shareUrl: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function createPaymentLink(apiKey: string, payload: CreatePaymentLinkInput) {
+  const res = await fetch(`${API_URL}/internal/device/links`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({})) as PaymentLinkData & { message?: string };
+  if (!res.ok) {
+    throw new Error(data.message ?? `Payment link creation failed: ${res.status}`);
+  }
+
+  return data;
+}
+
+export async function getPaymentLinks(apiKey: string, page = 1) {
+  const res = await fetch(`${API_URL}/internal/device/links?page=${page}&limit=20`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return { data: [], page, limit: 20 };
+  return res.json() as Promise<{ data: PaymentLinkData[]; page: number; limit: number }>;
+}
+
+export async function updatePaymentLink(
+  apiKey: string,
+  linkId: string,
+  payload: { isActive?: boolean },
+) {
+  const res = await fetch(`${API_URL}/internal/device/links/${linkId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({})) as PaymentLinkData & { message?: string };
+  if (!res.ok) {
+    throw new Error(data.message ?? `Payment link update failed: ${res.status}`);
+  }
+
+  return data;
+}

@@ -51,3 +51,6 @@ apps/mobile/ios/build/
 
 # Generated mobile config
 apps/mobileapp/src/config.generated.ts
+
+# Drizzle migrations (API)
+apps/api/src/db/migrations/

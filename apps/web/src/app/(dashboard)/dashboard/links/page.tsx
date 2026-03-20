@@ -9,6 +9,7 @@ const API_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3001';
 
 type PaymentLink = {
   id: string;
+  linkType: 'REUSABLE' | 'ONE_TIME';
   title: string;
   description: string | null;
   amount: number | null;
@@ -96,7 +97,13 @@ export default async function LinksPage() {
                       : 'Never'}
                   </td>
                   <td className="px-4 py-3">
-                    <LinkRowActions url={link.shareUrl} title={link.title} />
+                    <LinkRowActions
+                      url={link.shareUrl}
+                      title={link.title}
+                      linkId={link.id}
+                      isActive={link.isActive}
+                      linkType={link.linkType}
+                    />
                   </td>
                 </tr>
               ))}
@@ -107,4 +114,3 @@ export default async function LinksPage() {
     </div>
   );
 }
-

@@ -9,6 +9,7 @@ import TransactionsScreen from './screens/TransactionsScreen';
 import DisputesScreen from './screens/DisputesScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ApiKeyScreen from './screens/ApiKeyScreen';
+import PaymentLinksScreen from './screens/PaymentLinksScreen';
 import { startNotificationListener } from './services/notification-bridge';
 import { ensureBackgroundSyncRunning, getApiKey, registerDevice } from './services/api';
 import { C } from './theme';
@@ -73,6 +74,35 @@ function SlidersIcon({ color }: { color: string }) {
           <View style={{ position: 'absolute', left: dot - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: C.bg, borderWidth: 2, borderColor: color }} />
         </View>
       ))}
+    </View>
+  );
+}
+
+function LinkIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 21, height: 21, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{
+        width: 8,
+        height: 13,
+        borderRadius: 5,
+        borderWidth: 2,
+        borderColor: color,
+        transform: [{ rotate: '35deg' }],
+        position: 'absolute',
+        left: 2,
+      }}
+      />
+      <View style={{
+        width: 8,
+        height: 13,
+        borderRadius: 5,
+        borderWidth: 2,
+        borderColor: color,
+        transform: [{ rotate: '35deg' }],
+        position: 'absolute',
+        right: 2,
+      }}
+      />
     </View>
   );
 }
@@ -177,6 +207,12 @@ export default function App() {
           options={{ title: 'Disputes', tabBarIcon: ({ color }) => <ShieldIcon color={color} /> }}
         >
           {() => <DisputesScreen apiKey={apiKey} />}
+        </Tab.Screen>
+        <Tab.Screen
+          name="Links"
+          options={{ title: 'Links', tabBarIcon: ({ color }) => <LinkIcon color={color} /> }}
+        >
+          {() => <PaymentLinksScreen apiKey={apiKey} />}
         </Tab.Screen>
         <Tab.Screen
           name="Settings"
