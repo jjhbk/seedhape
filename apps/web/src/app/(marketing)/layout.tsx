@@ -12,6 +12,9 @@ function Footer() {
     { href: '/sign-up', label: 'Create account' },
     { href: '/dashboard', label: 'Dashboard' },
   ];
+  const col3 = [
+    { href: '/privacy', label: 'Privacy Policy' },
+  ];
 
   return (
     <footer className="border-t border-gray-100 bg-white">
@@ -27,7 +30,7 @@ function Footer() {
           </div>
 
           {/* Links */}
-          <div className="flex gap-16 text-sm">
+          <div className="flex flex-wrap gap-12 text-sm">
             <div>
               <p className="font-semibold text-gray-900 mb-3">Product</p>
               <ul className="space-y-2.5">
@@ -44,6 +47,18 @@ function Footer() {
               <p className="font-semibold text-gray-900 mb-3">Account</p>
               <ul className="space-y-2.5">
                 {col2.map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="text-gray-500 hover:text-gray-900 transition-colors">
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 mb-3">Legal</p>
+              <ul className="space-y-2.5">
+                {col3.map((l) => (
                   <li key={l.href}>
                     <Link href={l.href} className="text-gray-500 hover:text-gray-900 transition-colors">
                       {l.label}
