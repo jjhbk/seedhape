@@ -21,10 +21,23 @@ type DayEntry = {
 export function VerificationChart({ data }: { data: DayEntry[] }) {
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-        <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tickLine={false}
+          axisLine={false}
+          minTickGap={16}
+          tickMargin={8}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tickLine={false}
+          axisLine={false}
+          allowDecimals={false}
+          width={28}
+        />
         <Tooltip
           contentStyle={{ border: '1px solid #f3f4f6', borderRadius: 8, fontSize: 12 }}
           cursor={{ fill: '#f9fafb' }}

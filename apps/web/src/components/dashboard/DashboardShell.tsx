@@ -72,7 +72,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen bg-slate-50/60">
+    <div className="min-h-screen bg-slate-50/60 overflow-x-hidden">
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 shadow-sm">
         <button
@@ -162,8 +162,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="lg:ml-64 pt-14 lg:pt-0 min-h-screen">
-        <div className="p-4 sm:p-6 lg:p-8">
+      <main className="lg:ml-64 pt-14 lg:pt-0 min-h-screen overflow-x-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1280px] mx-auto">
           {children}
         </div>
       </main>

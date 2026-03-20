@@ -208,7 +208,7 @@ export default function SettingsPage() {
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="app.yourdomain.com"
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-1 break-words">
               When set, API keys can only be used from this domain (read from Origin/Referer or <code className="bg-gray-100 px-1 rounded">X-SeedhaPe-Domain</code>).
             </p>
           </div>
@@ -251,7 +251,7 @@ export default function SettingsPage() {
                 {webhookTest.message}
               </div>
             )}
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-1 break-words">
               We POST a signed <code className="bg-gray-100 px-1 rounded">order.verified</code> event here when a payment is confirmed.
             </p>
           </div>
@@ -296,7 +296,7 @@ export default function SettingsPage() {
                 Generate
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-1 break-words">
               Verify the <code className="bg-gray-100 px-1 rounded">X-SeedhaPe-Signature</code> header on incoming webhooks using this secret. Save changes after generating.
             </p>
           </div>
