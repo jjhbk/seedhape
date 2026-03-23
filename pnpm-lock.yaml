@@ -248,6 +248,9 @@ importers:
       next:
         specifier: ^15.1.4
         version: 15.5.12(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      pg:
+        specifier: ^8.13.1
+        version: 8.20.0
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -279,6 +282,9 @@ importers:
       '@types/node':
         specifier: ^22.10.7
         version: 22.19.15
+      '@types/pg':
+        specifier: ^8.11.11
+        version: 8.18.0
       '@types/react':
         specifier: ^19.0.7
         version: 19.2.14
