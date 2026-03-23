@@ -6,6 +6,7 @@ function Footer() {
   const col1 = [
     { href: '/docs', label: 'Documentation' },
     { href: '/pricing', label: 'Pricing' },
+    { href: '/contact', label: 'Contact us' },
   ];
   const col2 = [
     { href: '/sign-in', label: 'Sign in' },
@@ -22,7 +23,9 @@ function Footer() {
         <div className="flex flex-col md:flex-row justify-between gap-10">
           {/* Brand */}
           <div className="max-w-xs">
-            <SeedhaPeLogo />
+            <Link href="/">
+              <SeedhaPeLogo />
+            </Link>
             <p className="text-sm text-gray-400 mt-3 leading-relaxed">
               Zero-fee UPI payment verification middleware for Indian merchants. Accept payments
               directly — no gateway cut, ever.

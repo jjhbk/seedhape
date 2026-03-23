@@ -82,7 +82,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <Link href="/dashboard">
+        <Link href="/">
           <SeedhaPeLogo />
         </Link>
         <div className="p-1">
@@ -110,7 +110,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       >
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-gray-100 shrink-0">
-          <Link href="/dashboard" onClick={() => setSidebarOpen(false)}>
+          <Link href="/" onClick={() => setSidebarOpen(false)}>
             <SeedhaPeLogo />
           </Link>
           <button

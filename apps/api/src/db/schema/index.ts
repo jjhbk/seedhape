@@ -6,3 +6,4 @@ export * from './webhooks';
 export * from './api-keys';
 export * from './device-tokens';
 export * from './payment-links';
+export * from './marketing';

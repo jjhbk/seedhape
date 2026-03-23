@@ -73,6 +73,12 @@ function Hero() {
           >
             Read the docs
           </Link>
+          <Link
+            href="/contact#waitlist"
+            className="flex items-center gap-2 text-gray-300 hover:text-white font-medium px-8 py-3.5 rounded-xl text-base border border-emerald-700/70 hover:border-emerald-500 transition-colors w-full sm:w-auto justify-center"
+          >
+            Download on Play Store <Smartphone className="h-4 w-4" />
+          </Link>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2.5 text-sm text-gray-500">
@@ -423,6 +429,12 @@ function FinalCta() {
               className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-10 py-4 rounded-xl text-base transition-all shadow-lg shadow-emerald-900/40 hover:-translate-y-px"
             >
               Create free account <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/contact#waitlist"
+              className="inline-flex items-center gap-2 mt-3 border border-emerald-700/70 hover:border-emerald-500 text-emerald-200 hover:text-white font-semibold px-10 py-4 rounded-xl text-base transition-colors"
+            >
+              Get Android app updates <Smartphone className="h-4 w-4" />
             </Link>
             <p className="text-xs text-gray-500 mt-4">No credit card required</p>
           </div>
