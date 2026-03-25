@@ -444,6 +444,33 @@ function FinalCta() {
   );
 }
 
+function BlogFeature() {
+  return (
+    <section className="py-20 px-6 bg-[#f7f4ee] border-y border-[#ddd8cc]">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white/70 border border-[#ddd8cc] rounded-2xl p-7 md:p-10">
+          <p className="text-xs uppercase tracking-[0.14em] font-bold text-[#c8460a] mb-4">
+            New on the blog
+          </p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0f0e0b] tracking-tight leading-tight mb-4">
+            340 Million People. Zero Tooling.
+          </h2>
+          <p className="text-[#6b6456] text-[17px] leading-relaxed max-w-2xl mb-6">
+            Why India&apos;s biggest UPI merchant segment still runs on screenshots, manual checks,
+            and no automation - and the thesis behind SeedhaPe.
+          </p>
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-2 text-sm font-bold text-[#c8460a] hover:text-[#9e3808] transition-colors"
+          >
+            Read the full essay <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -455,6 +482,7 @@ export default function HomePage() {
       <CodeExample />
       <Savings />
       <Features />
+      <BlogFeature />
       <FinalCta />
     </>
   );

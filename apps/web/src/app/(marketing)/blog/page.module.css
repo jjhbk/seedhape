@@ -1,0 +1,350 @@
+.essayPage {
+  --ink: #0f0e0b;
+  --paper: #f7f4ee;
+  --accent: #c8460a;
+  --accent-muted: #e8c4b0;
+  --mid: #6b6456;
+  --rule: #ddd8cc;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1.75;
+  padding-top: 56px;
+}
+
+.essayPage :global(.hero) {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 80px 40px 60px;
+}
+
+.essayPage :global(.kicker) {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.essayPage :global(.kicker)::before {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.essayPage :global(h1) {
+  font-size: clamp(38px, 6vw, 64px);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin-bottom: 28px;
+}
+
+.essayPage :global(h1 em) {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.essayPage :global(.subtitle) {
+  font-size: 21px;
+  font-weight: 300;
+  color: var(--mid);
+  line-height: 1.6;
+  border-left: 3px solid var(--accent);
+  padding-left: 20px;
+  margin-bottom: 40px;
+  font-style: italic;
+}
+
+.essayPage :global(.byline) {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+}
+
+.essayPage :global(.avatar) {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.essayPage :global(.byline-text) {
+  font-size: 14px;
+  color: var(--mid);
+}
+
+.essayPage :global(.byline-text strong) {
+  color: var(--ink);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.essayPage :global(.divider) {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+.essayPage :global(.divider hr) {
+  border: none;
+  border-top: 1px solid var(--rule);
+}
+
+.essayPage :global(.body) {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 40px 100px;
+}
+
+.essayPage :global(.body p) {
+  margin-bottom: 28px;
+}
+
+.essayPage :global(.body h2) {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 64px 0 20px;
+  letter-spacing: -0.01em;
+}
+
+.essayPage :global(.body h3) {
+  font-size: 22px;
+  font-weight: 700;
+  font-style: italic;
+  margin: 40px 0 16px;
+  color: var(--accent);
+}
+
+.essayPage :global(.stat-block) {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 40px 44px;
+  margin: 48px 0;
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.essayPage :global(.stat-block)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent);
+}
+
+.essayPage :global(.stat-number) {
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.essayPage :global(.stat-label) {
+  font-size: 18px;
+  font-weight: 300;
+  color: #c8c0b4;
+  line-height: 1.5;
+}
+
+.essayPage :global(.pull-quote) {
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--ink);
+  border-top: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  padding: 28px 0;
+  margin: 52px 0;
+  text-align: center;
+}
+
+.essayPage :global(.highlight-box) {
+  background: var(--accent-muted);
+  border-left: 4px solid var(--accent);
+  padding: 24px 28px;
+  margin: 40px 0;
+  border-radius: 0 2px 2px 0;
+}
+
+.essayPage :global(.highlight-box p) {
+  margin-bottom: 0;
+  font-size: 17px;
+}
+
+.essayPage :global(.highlight-box strong) {
+  color: var(--accent);
+}
+
+.essayPage :global(code) {
+  font-size: 14px;
+  background: var(--rule);
+  padding: 2px 7px;
+  border-radius: 2px;
+  color: var(--accent);
+}
+
+.essayPage :global(.problem-grid) {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin: 40px 0;
+}
+
+.essayPage :global(.problem-card) {
+  border: 1px solid var(--rule);
+  padding: 28px 32px;
+  border-radius: 2px;
+  position: relative;
+}
+
+.essayPage :global(.problem-card)::before {
+  content: attr(data-num);
+  font-size: 64px;
+  font-weight: 900;
+  color: var(--accent-muted);
+  position: absolute;
+  top: 12px;
+  right: 24px;
+  line-height: 1;
+}
+
+.essayPage :global(.problem-card h4) {
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.essayPage :global(.problem-card p) {
+  margin-bottom: 0;
+  font-size: 16px;
+  color: var(--mid);
+  line-height: 1.65;
+}
+
+.essayPage :global(.flow) {
+  margin: 40px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.essayPage :global(.flow-step) {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.essayPage :global(.flow-step:last-child) {
+  border-bottom: none;
+}
+
+.essayPage :global(.step-icon) {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--paper);
+  background: var(--accent);
+  width: 32px;
+  height: 32px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.essayPage :global(.step-content strong) {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.essayPage :global(.step-content span) {
+  font-size: 15px;
+  color: var(--mid);
+}
+
+.essayPage :global(.closing) {
+  background: var(--ink);
+  color: var(--paper);
+  width: 100%;
+  padding: 80px 40px;
+  text-align: center;
+}
+
+.essayPage :global(.closing-inner) {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.essayPage :global(.closing h2) {
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--paper);
+  margin: 0 0 20px;
+}
+
+.essayPage :global(.closing p) {
+  color: #a09890;
+  font-size: 17px;
+  margin-bottom: 32px;
+}
+
+.essayPage :global(.cta-btn) {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 32px;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: opacity 0.2s;
+}
+
+.essayPage :global(.cta-btn:hover) {
+  opacity: 0.85;
+}
+
+@media (max-width: 600px) {
+  .essayPage :global(.hero),
+  .essayPage :global(.body),
+  .essayPage :global(.divider) {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .essayPage :global(.stat-number) {
+    font-size: 56px;
+  }
+
+  .essayPage :global(.pull-quote) {
+    font-size: 21px;
+  }
+}

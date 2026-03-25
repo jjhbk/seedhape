@@ -4,6 +4,7 @@ import { MarketingNav } from '@/components/marketing/MarketingNav';
 
 function Footer() {
   const col1 = [
+    { href: '/blog', label: 'Blog' },
     { href: '/docs', label: 'Documentation' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/contact', label: 'Contact us' },

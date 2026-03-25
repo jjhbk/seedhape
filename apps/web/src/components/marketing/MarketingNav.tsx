@@ -8,6 +8,7 @@ import { Menu, X, ArrowRight, LayoutDashboard } from 'lucide-react';
 import { SeedhaPeLogo } from '@/components/brand/SeedhaPeLogo';
 
 const links = [
+  { href: '/blog', label: 'Blog' },
   { href: '/docs', label: 'Docs' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/contact', label: 'Contact' },
