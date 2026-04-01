@@ -193,6 +193,42 @@ router.get('/:orderId', async (req, res, next) => {
   }
 });
 
+// GET /v1/pay/:orderId/status — lightweight public status poll
+router.get('/:orderId/status', async (req, res, next) => {
+  try {
+    const orderId = String(req.params['orderId']);
+    const [row] = await db
+      .select({
+        id: orders.id,
+        status: orders.status,
+        amount: orders.amount,
+        verifiedAt: orders.verifiedAt,
+        merchantStatus: merchants.status,
+      })
+      .from(orders)
+      .innerJoin(merchants, eq(merchants.id, orders.merchantId))
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    if (!row) {
+      throw new AppError(404, 'Order not found', 'ORDER_NOT_FOUND');
+    }
+
+    if (row.merchantStatus !== 'ONLINE') {
+      throw new AppError(503, 'Merchant is offline. Payments are temporarily unavailable.', 'MERCHANT_OFFLINE');
+    }
+
+    res.json({
+      id: row.id,
+      status: row.status,
+      amount: row.amount,
+      verifiedAt: row.verifiedAt?.toISOString() ?? null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /v1/pay/:orderId/expectation — set expected sender name for amount+name matching
 router.post('/:orderId/expectation', async (req, res, next) => {
   try {

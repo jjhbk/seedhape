@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 // ─── Code snippets ─────────────────────────────────────────────────────────────
 
 const snippets = {
-  curlCreateOrder: `curl -X POST "https://api.seedhape.com/v1/orders" \\
+  curlCreateOrder: `curl -X POST "https://seedhape.onrender.com/v1/orders" \\
   -H "Authorization: Bearer sp_live_YOUR_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -29,7 +29,7 @@ const snippets = {
   "createdAt": "2026-03-15T12:19:56.000Z"
 }`,
 
-  curlStatus: `curl "https://api.seedhape.com/v1/orders/sp_ord_ab12cd34ef56/status" \\
+  curlStatus: `curl "https://seedhape.onrender.com/v1/orders/sp_ord_ab12cd34ef56/status" \\
   -H "Authorization: Bearer sp_live_YOUR_KEY"`,
 
   sdkInstall: `npm install @seedhape/sdk
@@ -387,7 +387,7 @@ case 'order.resolved':
 # Public endpoint — no API key required
 # Call this after creating the order, before the customer pays
 
-curl -X POST "https://api.seedhape.com/v1/pay/sp_ord_ab12cd34ef56/expectation" \\
+curl -X POST "https://seedhape.onrender.com/v1/pay/sp_ord_ab12cd34ef56/expectation" \\
   -H "Content-Type: application/json" \\
   -d '{ "expectedSenderName": "Rahul Sharma" }'
 
@@ -397,7 +397,7 @@ curl -X POST "https://api.seedhape.com/v1/pay/sp_ord_ab12cd34ef56/expectation" \
   fetchSetExpectation: `// If building a custom payment UI without the SDK/React package,
 // call this endpoint after showing the name input to your customer.
 
-const res = await fetch(\`https://api.seedhape.com/v1/pay/\${orderId}/expectation\`, {
+const res = await fetch(\`https://seedhape.onrender.com/v1/pay/\${orderId}/expectation\`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ expectedSenderName: customerName }),
@@ -409,7 +409,7 @@ if (!res.ok) throw new Error('Failed to set sender name');`,
 # Public endpoint — no API key required
 # Accepted when order status is PENDING, DISPUTED, or EXPIRED
 
-curl -X POST "https://api.seedhape.com/v1/pay/sp_ord_ab12cd34ef56/screenshot" \\
+curl -X POST "https://seedhape.onrender.com/v1/pay/sp_ord_ab12cd34ef56/screenshot" \\
   -F "screenshot=@/path/to/payment-screenshot.jpg"
 
 # Response
@@ -424,7 +424,7 @@ async function submitDispute(orderId: string, file: File) {
   const form = new FormData();
   form.append('screenshot', file);          // field name must be "screenshot"
 
-  const res = await fetch(\`https://api.seedhape.com/v1/pay/\${orderId}/screenshot\`, {
+  const res = await fetch(\`https://seedhape.onrender.com/v1/pay/\${orderId}/screenshot\`, {
     method: 'POST',
     body: form,
     // Do NOT set Content-Type manually — browser sets multipart boundary automatically
@@ -982,7 +982,7 @@ export default function MerchantDocsPage() {
             </Prop>
             <Prop name="baseUrl" type="string">
               Override the SeedhaPe API base URL. Defaults to{' '}
-              <code>https://api.seedhape.com</code>. Set via{' '}
+              <code>https://seedhape.onrender.com</code>. Set via{' '}
               <code>SEEDHAPE_BASE_URL</code> for self-hosted deployments.
             </Prop>
           </div>

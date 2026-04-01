@@ -18,6 +18,7 @@ type OrderData = {
   expiresAt: string;
   expectedSenderName: string | null;
 };
+type OrderStatusData = Pick<OrderData, 'id' | 'status' | 'amount'>;
 
 export default function PaymentPage() {
   const params = useParams<{ orderId: string }>();
@@ -65,14 +66,19 @@ export default function PaymentPage() {
     }
   }
 
+  async function fetchOrderStatus(orderId: string): Promise<OrderStatusData | null> {
+    const res = await fetch(`${API_URL}/v1/pay/${orderId}/status`);
+    if (!res.ok) return null;
+    return res.json() as Promise<OrderStatusData>;
+  }
+
   function startPolling() {
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API_URL}/v1/pay/${params.orderId}`);
-        if (!res.ok) return;
-        const data = await res.json() as OrderData;
-        setOrder(data);
-        if (['VERIFIED', 'EXPIRED', 'REJECTED', 'RESOLVED'].includes(data.status)) {
+        const statusData = await fetchOrderStatus(params.orderId);
+        if (!statusData) return;
+        setOrder((prev) => (prev ? { ...prev, ...statusData } : prev));
+        if (['VERIFIED', 'EXPIRED', 'REJECTED', 'RESOLVED'].includes(statusData.status)) {
           if (pollRef.current) clearInterval(pollRef.current);
         }
       } catch {

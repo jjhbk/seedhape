@@ -12,6 +12,7 @@ type OrderData = {
   expiresAt: string;
   expectedSenderName: string | null;
 };
+type OrderStatusData = Pick<OrderData, 'id' | 'status' | 'amount'>;
 
 const TERMINAL = ['VERIFIED', 'RESOLVED', 'EXPIRED', 'REJECTED', 'DISPUTED'];
 
@@ -164,16 +165,26 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
     }
   }
 
+  async function fetchOrderStatus(id: string): Promise<OrderStatusData | null> {
+    const res = await fetch(`${API_URL}/v1/pay/${id}/status`);
+    if (!res.ok) return null;
+    return res.json() as Promise<OrderStatusData>;
+  }
+
   function startPolling() {
     pollRef.current = setInterval(async () => {
-      const res = await fetch(`${API_URL}/v1/pay/${orderId}`);
-      if (!res.ok) return;
-      const data = await res.json() as OrderData;
-      setOrder(data);
-      if (TERMINAL.includes(data.status)) {
+      const statusData = await fetchOrderStatus(orderId);
+      if (!statusData) return;
+      setOrder((prev) => (prev ? { ...prev, ...statusData } : prev));
+      if (TERMINAL.includes(statusData.status)) {
         if (pollRef.current)  clearInterval(pollRef.current);
         if (timerRef.current) clearInterval(timerRef.current);
-        handleTerminal(data);
+        const fullRes = await fetch(`${API_URL}/v1/pay/${orderId}`);
+        if (fullRes.ok) {
+          const fullData = await fullRes.json() as OrderData;
+          setOrder(fullData);
+          handleTerminal(fullData);
+        }
       }
     }, 3000);
   }
@@ -222,13 +233,17 @@ export function PaymentModal({ orderId, open, onClose, onSuccess, onExpired }: P
       // Use a tighter terminal set — DISPUTED/EXPIRED can still resolve to VERIFIED.
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
-        const r = await fetch(`${API_URL}/v1/pay/${orderId}`);
-        if (!r.ok) return;
-        const d = await r.json() as OrderData;
-        setOrder(d);
-        if (d.status === 'VERIFIED' || d.status === 'RESOLVED' || d.status === 'REJECTED') {
+        const statusData = await fetchOrderStatus(orderId);
+        if (!statusData) return;
+        setOrder((prev) => (prev ? { ...prev, ...statusData } : prev));
+        if (statusData.status === 'VERIFIED' || statusData.status === 'RESOLVED' || statusData.status === 'REJECTED') {
           if (pollRef.current) clearInterval(pollRef.current);
-          handleTerminal(d);
+          const fullRes = await fetch(`${API_URL}/v1/pay/${orderId}`);
+          if (fullRes.ok) {
+            const fullData = await fullRes.json() as OrderData;
+            setOrder(fullData);
+            handleTerminal(fullData);
+          }
         }
       }, 3000);
     } catch {

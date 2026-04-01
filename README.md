@@ -489,7 +489,7 @@ import { SeedhaPe } from '@seedhape/sdk';
 
 const seedhape = new SeedhaPe({
   apiKey: 'sp_live_xxxxxxxxxxxxxxxx',
-  baseUrl: 'https://api.seedhape.com', // optional, defaults to production
+  baseUrl: 'https://seedhape.onrender.com', // optional, defaults to production
 });
 
 // Create an order

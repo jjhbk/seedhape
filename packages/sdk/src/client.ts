@@ -6,9 +6,10 @@ import type {
   ShowPaymentOptions,
 } from './types.js';
 
-const DEFAULT_BASE_URL = 'https://api.seedhape.com';
+const DEFAULT_BASE_URL = 'https://seedhape.onrender.com';
 const POLL_INTERVAL_MS = 3000;
 const TERMINAL_STATUSES = ['VERIFIED', 'EXPIRED', 'REJECTED', 'RESOLVED'] as const;
+type PublicOrderStatus = Pick<OrderData, 'id' | 'status' | 'amount'> & { verifiedAt?: string | null };
 
 export class SeedhaPe {
   private readonly apiKey: string;
@@ -70,6 +71,12 @@ export class SeedhaPe {
       const modal = this.renderModal(options, resolve, reject);
       document.body.appendChild(modal);
     });
+  }
+
+  private async fetchPublicOrderStatus(orderId: string): Promise<PublicOrderStatus> {
+    const res = await fetch(`${this.baseUrl}/v1/pay/${orderId}/status`);
+    if (!res.ok) throw new Error(`SeedhaPe: status poll failed — ${res.status}`);
+    return res.json() as Promise<PublicOrderStatus>;
   }
 
   private ensureModalStyles() {
@@ -392,13 +399,11 @@ export class SeedhaPe {
 
     pollTimer = setInterval(async () => {
       try {
-        const res = await fetch(`${this.baseUrl}/v1/pay/${order.id}`);
-        if (!res.ok) return;
-        const updated = await res.json() as OrderData;
+        const updated = await this.fetchPublicOrderStatus(order.id);
         if (TERMINAL_STATUSES.includes(updated.status as (typeof TERMINAL_STATUSES)[number])) {
           clearInterval(pollTimer);
           clearInterval(timerInterval);
-          this.renderTerminal(card, updated, options, resolve, cleanup);
+          this.renderTerminal(card, { ...order, ...updated }, options, resolve, cleanup);
         }
       } catch { /* ignore */ }
     }, POLL_INTERVAL_MS);
@@ -444,12 +449,10 @@ export class SeedhaPe {
     // Start a final poll so we can still call onExpired / onSuccess when server confirms.
     const finalPoll = setInterval(async () => {
       try {
-        const res = await fetch(`${this.baseUrl}/v1/pay/${order.id}`);
-        if (!res.ok) return;
-        const updated = await res.json() as OrderData;
+        const updated = await this.fetchPublicOrderStatus(order.id);
         if (TERMINAL_STATUSES.includes(updated.status as (typeof TERMINAL_STATUSES)[number])) {
           clearInterval(finalPoll);
-          this.renderTerminal(card, updated, options, resolve, cleanup);
+          this.renderTerminal(card, { ...order, ...updated }, options, resolve, cleanup);
         }
       } catch { /* ignore */ }
     }, POLL_INTERVAL_MS);

@@ -62,7 +62,7 @@ Use this if you want no SDK dependency, or you're integrating from any language 
 ### Create an order
 
 ```bash
-curl -X POST "https://api.seedhape.com/v1/orders" \
+curl -X POST "https://seedhape.onrender.com/v1/orders" \
   -H "Authorization: Bearer sp_live_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -113,7 +113,7 @@ The page is included in the web app. It polls for payment status and handles the
 
 ```bash
 # Poll from your server
-curl "https://api.seedhape.com/v1/orders/sp_ord_ab12cd34ef56/status" \
+curl "https://seedhape.onrender.com/v1/orders/sp_ord_ab12cd34ef56/status" \
   -H "Authorization: Bearer sp_live_YOUR_KEY"
 ```
 
@@ -131,7 +131,7 @@ curl "https://api.seedhape.com/v1/orders/sp_ord_ab12cd34ef56/status" \
 If you don't know the customer's name at order creation time, collect it in your frontend and store it:
 
 ```javascript
-await fetch(`https://api.seedhape.com/v1/pay/${orderId}/expectation`, {
+await fetch(`https://seedhape.onrender.com/v1/pay/${orderId}/expectation`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ expectedSenderName: 'Rahul Sharma' }),
@@ -160,7 +160,7 @@ SEEDHAPE_API_KEY = "sp_live_..."
 
 def create_order(amount_paise: int, description: str, external_id: str) -> dict:
     res = requests.post(
-        "https://api.seedhape.com/v1/orders",
+        "https://seedhape.onrender.com/v1/orders",
         headers={
             "Authorization": f"Bearer {SEEDHAPE_API_KEY}",
             "Content-Type": "application/json",
@@ -566,7 +566,7 @@ export async function action({ request }: { request: Request }) {
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
 | `onCreateOrder` | `(opts: CreateOrderOptions) => Promise<OrderData>` | **Yes** | Server-side function. Must call the SeedhaPe API with your secret key. |
-| `baseUrl` | `string` | No | Override API base URL. Default: `https://api.seedhape.com`. |
+| `baseUrl` | `string` | No | Override API base URL. Default: `https://seedhape.onrender.com`. |
 
 ---
 

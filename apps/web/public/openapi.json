@@ -7,7 +7,7 @@
     "contact": { "url": "https://seedhape.com/docs" }
   },
   "servers": [
-    { "url": "https://api.seedhape.com", "description": "Production" },
+    { "url": "https://seedhape.onrender.com", "description": "Production" },
     { "url": "http://localhost:3001", "description": "Local development" }
   ],
   "components": {

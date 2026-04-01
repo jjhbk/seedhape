@@ -11,19 +11,27 @@ import { logger } from '../lib/logger.js';
 const MAX_ATTEMPTS = 5;
 const BACKOFF_BASE_MS = 5_000; // 5s, 25s, 125s, 625s, 3125s
 
-export async function deliverWebhook(orderId: string, payload: WebhookPayload): Promise<void> {
-  const [order] = await db
-    .select({ merchantId: orders.merchantId })
-    .from(orders)
-    .where(eq(orders.id, orderId))
-    .limit(1);
+export async function deliverWebhook(
+  orderId: string,
+  payload: WebhookPayload,
+  merchantId?: string,
+): Promise<void> {
+  let resolvedMerchantId = merchantId;
+  if (!resolvedMerchantId) {
+    const [order] = await db
+      .select({ merchantId: orders.merchantId })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
 
-  if (!order) return;
+    if (!order) return;
+    resolvedMerchantId = order.merchantId;
+  }
 
   const [merchant] = await db
     .select({ webhookUrl: merchants.webhookUrl, webhookSecret: merchants.webhookSecret })
     .from(merchants)
-    .where(eq(merchants.id, order.merchantId))
+    .where(eq(merchants.id, resolvedMerchantId))
     .limit(1);
 
   if (!merchant?.webhookUrl) return;

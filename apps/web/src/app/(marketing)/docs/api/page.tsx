@@ -179,7 +179,7 @@ export default function ApiReferencePage() {
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">API Reference</h1>
           <p className="mt-2 text-gray-500 leading-relaxed max-w-2xl">
             Complete reference for the SeedhaPe HTTP API. Base URL:{' '}
-            <code className="text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded text-sm font-mono">https://api.seedhape.com</code>
+            <code className="text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded text-sm font-mono">https://seedhape.onrender.com</code>
           </p>
           <div className="flex flex-wrap gap-3 mt-5">
             <a
@@ -309,7 +309,7 @@ export default function ApiReferencePage() {
             </SubSection>
 
             <SubSection title="Example request">
-              <CodeBlock title="curl" code={`curl -X POST "https://api.seedhape.com/v1/orders" \\
+              <CodeBlock title="curl" code={`curl -X POST "https://seedhape.onrender.com/v1/orders" \\
   -H "Authorization: Bearer sp_live_YOUR_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -367,7 +367,7 @@ export default function ApiReferencePage() {
             </SubSection>
 
             <SubSection title="Example request">
-              <CodeBlock title="curl" code={`curl "https://api.seedhape.com/v1/orders/sp_ord_ab12cd34ef56" \\
+              <CodeBlock title="curl" code={`curl "https://seedhape.onrender.com/v1/orders/sp_ord_ab12cd34ef56" \\
   -H "Authorization: Bearer sp_live_YOUR_KEY"`} />
             </SubSection>
 
@@ -398,7 +398,7 @@ export default function ApiReferencePage() {
             </SubSection>
 
             <SubSection title="Example request">
-              <CodeBlock title="curl" code={`curl "https://api.seedhape.com/v1/orders/sp_ord_ab12cd34ef56/status" \\
+              <CodeBlock title="curl" code={`curl "https://seedhape.onrender.com/v1/orders/sp_ord_ab12cd34ef56/status" \\
   -H "Authorization: Bearer sp_live_YOUR_KEY"`} />
             </SubSection>
 
@@ -531,7 +531,7 @@ export default function ApiReferencePage() {
             </SubSection>
 
             <SubSection title="Example request">
-              <CodeBlock title="curl" code={`curl -X POST "https://api.seedhape.com/v1/pay/sp_ord_ab12cd34ef56/screenshot" \\
+              <CodeBlock title="curl" code={`curl -X POST "https://seedhape.onrender.com/v1/pay/sp_ord_ab12cd34ef56/screenshot" \\
   -F "screenshot=@/path/to/payment-confirmation.jpg"`} />
             </SubSection>
 
@@ -569,10 +569,10 @@ export default function ApiReferencePage() {
             </SubSection>
 
             <SubSection title="Example usage">
-              <CodeBlock title="HTML" code={`<img src="https://api.seedhape.com/v1/pay/qr/sp_ord_ab12cd34ef56" alt="Pay with UPI" />`} />
+              <CodeBlock title="HTML" code={`<img src="https://seedhape.onrender.com/v1/pay/qr/sp_ord_ab12cd34ef56" alt="Pay with UPI" />`} />
               <CodeBlock title="Email template (e.g. Nodemailer)" code={`attachments: [{
   filename: 'payment-qr.png',
-  path: \`https://api.seedhape.com/v1/pay/qr/\${order.id}\`,
+  path: \`https://seedhape.onrender.com/v1/pay/qr/\${order.id}\`,
 }]`} />
             </SubSection>
 

@@ -52,6 +52,7 @@ export const orders = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    index('orders_status_expires_idx').on(table.status, table.expiresAt),
     index('orders_merchant_status_expires_idx').on(
       table.merchantId,
       table.status,

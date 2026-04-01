@@ -78,7 +78,7 @@ export function startWebhookWorker(): Worker {
             verifiedAt: order.verifiedAt?.toISOString() ?? null,
             metadata: order.metadata as Record<string, unknown> | null,
           },
-        });
+        }, order.merchantId);
       } else if (job.name === 'retry') {
         const { deliveryId, url, body, signature, attempt } = job.data as {
           deliveryId: string;

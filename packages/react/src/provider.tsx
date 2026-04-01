@@ -1,7 +1,7 @@
 import React, { createContext, useContext } from 'react';
 import type { CreateOrderOptions, OrderData } from '@seedhape/sdk';
 
-const DEFAULT_BASE_URL = 'https://api.seedhape.com';
+const DEFAULT_BASE_URL = 'https://seedhape.onrender.com';
 
 interface SeedhaPeContextValue {
   onCreateOrder: (opts: CreateOrderOptions) => Promise<OrderData>;
@@ -28,7 +28,7 @@ export function SeedhaPeProvider({
    * }
    */
   onCreateOrder: (opts: CreateOrderOptions) => Promise<OrderData>;
-  /** Override the SeedhaPe API base URL. Defaults to https://api.seedhape.com */
+  /** Override the SeedhaPe API base URL. Defaults to https://seedhape.onrender.com */
   baseUrl?: string;
   children: React.ReactNode;
 }) {

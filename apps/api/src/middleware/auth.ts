@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 import type { NextFunction, Request, Response } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull, lt, or } from 'drizzle-orm';
 
 import { db } from '../db/index.js';
 import { apiKeys, merchants } from '../db/schema/index.js';
@@ -60,64 +60,77 @@ export async function requireApiKey(
   _res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return next(new AppError(401, 'Missing API key', 'MISSING_API_KEY'));
-  }
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return next(new AppError(401, 'Missing API key', 'MISSING_API_KEY'));
+    }
 
-  const rawKey = authHeader.slice(7).trim();
-  if (!rawKey.startsWith('sp_live_') && !rawKey.startsWith('sp_test_')) {
-    return next(new AppError(401, 'Invalid API key format', 'INVALID_API_KEY'));
-  }
+    const rawKey = authHeader.slice(7).trim();
+    if (!rawKey.startsWith('sp_live_') && !rawKey.startsWith('sp_test_')) {
+      return next(new AppError(401, 'Invalid API key format', 'INVALID_API_KEY'));
+    }
 
-  const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
-  const [keyRecord] = await db
-    .select({
-      merchantId: apiKeys.merchantId,
-      environment: apiKeys.environment,
-      isActive: apiKeys.isActive,
-      merchantSettings: merchants.settings,
-    })
-    .from(apiKeys)
-    .innerJoin(merchants, eq(merchants.id, apiKeys.merchantId))
-    .where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.isActive, true)))
-    .limit(1);
+    const [keyRecord] = await db
+      .select({
+        merchantId: apiKeys.merchantId,
+        environment: apiKeys.environment,
+        isActive: apiKeys.isActive,
+        merchantSettings: merchants.settings,
+      })
+      .from(apiKeys)
+      .innerJoin(merchants, eq(merchants.id, apiKeys.merchantId))
+      .where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.isActive, true)))
+      .limit(1);
 
-  if (!keyRecord) {
-    return next(new AppError(401, 'Invalid or inactive API key', 'INVALID_API_KEY'));
-  }
+    if (!keyRecord) {
+      return next(new AppError(401, 'Invalid or inactive API key', 'INVALID_API_KEY'));
+    }
 
-  // Update last used (fire and forget)
-  void db
-    .update(apiKeys)
-    .set({ lastUsedAt: new Date() })
-    .where(eq(apiKeys.keyHash, keyHash));
-
-  req.merchantId = keyRecord.merchantId;
-  req.environment = keyRecord.environment;
-
-  const configuredDomainRaw = (keyRecord.merchantSettings as { allowedDomain?: string } | null)
-    ?.allowedDomain;
-  const configuredDomain = configuredDomainRaw ? normalizeDomain(configuredDomainRaw) : null;
-
-  if (configuredDomain) {
-    const requestDomain = getRequestDomain(req);
-
-    // For native/server-to-server callers, Origin/Referer may be absent.
-    // Enforce only when a domain hint is present and mismatched.
-    if (requestDomain && requestDomain !== configuredDomain) {
-      return next(
-        new AppError(
-          403,
-          `API key locked to ${configuredDomain}. Request domain ${requestDomain} is not allowed.`,
-          'DOMAIN_NOT_ALLOWED',
+    // Throttle write-amplification under high-frequency polling.
+    const lastUsedThreshold = new Date(Date.now() - 5 * 60 * 1000);
+    void db
+      .update(apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(
+        and(
+          eq(apiKeys.keyHash, keyHash),
+          or(
+            isNull(apiKeys.lastUsedAt),
+            lt(apiKeys.lastUsedAt, lastUsedThreshold),
+          ),
         ),
       );
-    }
-  }
 
-  next();
+    req.merchantId = keyRecord.merchantId;
+    req.environment = keyRecord.environment;
+
+    const configuredDomainRaw = (keyRecord.merchantSettings as { allowedDomain?: string } | null)
+      ?.allowedDomain;
+    const configuredDomain = configuredDomainRaw ? normalizeDomain(configuredDomainRaw) : null;
+
+    if (configuredDomain) {
+      const requestDomain = getRequestDomain(req);
+
+      // For native/server-to-server callers, Origin/Referer may be absent.
+      // Enforce only when a domain hint is present and mismatched.
+      if (requestDomain && requestDomain !== configuredDomain) {
+        return next(
+          new AppError(
+            403,
+            `API key locked to ${configuredDomain}. Request domain ${requestDomain} is not allowed.`,
+            'DOMAIN_NOT_ALLOWED',
+          ),
+        );
+      }
+    }
+
+    next();
+  } catch {
+    return next(new AppError(503, 'Database unavailable', 'DATABASE_UNAVAILABLE'));
+  }
 }
 
 /**
@@ -128,27 +141,31 @@ export async function requireDeviceToken(
   _res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const deviceId = req.headers['x-device-id'] as string | undefined;
-  const merchantId = req.headers['x-merchant-id'] as string | undefined;
+  try {
+    const deviceId = req.headers['x-device-id'] as string | undefined;
+    const merchantId = req.headers['x-merchant-id'] as string | undefined;
 
-  if (!deviceId || !merchantId) {
-    return next(new AppError(401, 'Missing device credentials', 'MISSING_DEVICE_CREDENTIALS'));
+    if (!deviceId || !merchantId) {
+      return next(new AppError(401, 'Missing device credentials', 'MISSING_DEVICE_CREDENTIALS'));
+    }
+
+    // Verify device is registered for this merchant
+    const { deviceTokens } = await import('../db/schema/index.js');
+    const [device] = await db
+      .select({ id: deviceTokens.id })
+      .from(deviceTokens)
+      .where(
+        and(eq(deviceTokens.deviceId, deviceId), eq(deviceTokens.merchantId, merchantId)),
+      )
+      .limit(1);
+
+    if (!device) {
+      return next(new AppError(401, 'Device not registered', 'DEVICE_NOT_REGISTERED'));
+    }
+
+    req.deviceMerchantId = merchantId;
+    next();
+  } catch {
+    return next(new AppError(503, 'Database unavailable', 'DATABASE_UNAVAILABLE'));
   }
-
-  // Verify device is registered for this merchant
-  const { deviceTokens } = await import('../db/schema/index.js');
-  const [device] = await db
-    .select({ id: deviceTokens.id })
-    .from(deviceTokens)
-    .where(
-      and(eq(deviceTokens.deviceId, deviceId), eq(deviceTokens.merchantId, merchantId)),
-    )
-    .limit(1);
-
-  if (!device) {
-    return next(new AppError(401, 'Device not registered', 'DEVICE_NOT_REGISTERED'));
-  }
-
-  req.deviceMerchantId = merchantId;
-  next();
 }

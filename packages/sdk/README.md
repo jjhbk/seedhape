@@ -103,7 +103,7 @@ const status = await sp.getOrderStatus('sp_ord_k3x9mq7y2p');
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `apiKey` | `string` | — | Your `sp_live_...` or `sp_test_...` key. Required for `createOrder` and `getOrderStatus`. |
-| `baseUrl` | `string` | `https://api.seedhape.com` | Override for self-hosted deployments. |
+| `baseUrl` | `string` | `https://seedhape.onrender.com` | Override for self-hosted deployments. |
 
 ---
 

@@ -36,6 +36,7 @@ export const merchants = pgTable(
   (table) => [
     uniqueIndex('merchants_clerk_user_id_idx').on(table.clerkUserId),
     uniqueIndex('merchants_email_idx').on(table.email),
+    index('merchants_status_heartbeat_idx').on(table.status, table.lastHeartbeatAt),
   ],
 );
 

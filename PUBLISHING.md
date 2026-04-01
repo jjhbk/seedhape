@@ -138,7 +138,7 @@ The `build.gradle` already reads this file automatically — no other changes ne
 
 ```env
 # apps/mobileapp/.env
-SEEDHAPE_API_URL=https://api.seedhape.com
+SEEDHAPE_API_URL=https://seedhape.onrender.com
 ```
 
 ### 5. Build the release AAB

@@ -98,7 +98,7 @@ export default async function handler(req, res) {
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
 | `onCreateOrder` | `(opts: CreateOrderOptions) => Promise<OrderData>` | **Yes** | Called whenever a payment is initiated. Implement this on the server — your API key must never reach the browser. |
-| `baseUrl` | `string` | No | Override the API base URL. Default: `https://api.seedhape.com`. |
+| `baseUrl` | `string` | No | Override the API base URL. Default: `https://seedhape.onrender.com`. |
 
 ---
 
