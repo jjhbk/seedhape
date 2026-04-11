@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ProductDemoPlayer } from '@/components/marketing/ProductDemoPlayer';
 import {
   ArrowRight,
   Zap,
@@ -95,6 +96,18 @@ function Hero() {
             Works with all major UPI apps
           </span>
         </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Product demo ──────────────────────────────────────────────────────────────
+
+function ProductDemo() {
+  return (
+    <section className="bg-[#0a1a0e] px-6 pb-20">
+      <div className="max-w-5xl mx-auto text-center">
+        <ProductDemoPlayer />
       </div>
     </section>
   );
@@ -477,6 +490,7 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      <ProductDemo />
       <StatsBar />
       <HowItWorks />
       <CodeExample />
